@@ -39,7 +39,7 @@ Le but : constituer un dossier factuel (dates, heures, durées, répétition, de
 ## Installation
 
 ```bash
-git clone <url-du-depot> ~/aboiements
+git clone <url-du-depot> ~/aboiements   # garder ce nom de dossier (services et chemins)
 cd ~/aboiements
 ./install.sh
 ```

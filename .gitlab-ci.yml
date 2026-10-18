@@ -1,0 +1,6 @@
+# Tests sans matériel ni modèle (micro et IA simulés).
+tests:
+  image: python:3.13-slim
+  script:
+    - pip install --quiet numpy scipy
+    - python -m unittest discover -s tests -v
