@@ -5,8 +5,8 @@ web_password.txt
 aboiements.conf*
 
 # Téléchargé à l'installation
-yamnet.tflite
-yamnet_class_map.csv
+/yamnet.tflite
+/yamnet_class_map.csv   # racine seulement : tests/data/ en garde une copie pour les tests
 
 # Environnement
 .venv/
