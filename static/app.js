@@ -121,19 +121,46 @@ function render() {
   const ks = vals.map(([k]) => k);
   $('#axis').innerHTML = ks.length ? `<span>${shortDay(ks[0])}</span><span>max ${fmtDur(max)}/jour</span><span>${shortDay(ks[ks.length - 1])}</span>` : '';
 
-  if (!list.length) { $('#list').innerHTML = `<div class="empty">${inTrash ? 'Corbeille vide sur cette période.' : 'Aucun épisode sur cette période.'}</div>`; return; }
-  let html = '', last = '';
-  for (const e of list.slice(0, LIMIT)) {
+  if (!list.length) { $('#daytools').hidden = true; $('#list').innerHTML = `<div class="empty">${inTrash ? 'Corbeille vide sur cette période.' : 'Aucun épisode sur cette période.'}</div>`; return; }
+
+  // Regroupement par jour : chaque journée se replie, l'état est mémorisé dans ce navigateur.
+  const groups = [];
+  for (const e of list) {
     const k = dayKey(e.debut);
-    if (k !== last) {
-      const d = days.get(k);
-      html += `<div class="day">${esc(frDay(k))}<span>${d ? `${d.n} épisode(s) · ${fmtDur(d.s)}` : ''}</span></div>`;
-      last = k;
+    if (!groups.length || groups[groups.length - 1].k !== k) groups.push({k, evs: []});
+    groups[groups.length - 1].evs.push(e);
+  }
+  $('#daytools').hidden = groups.length < 2;
+  let html = '', budget = LIMIT, hidden = 0;
+  for (const g of groups) {
+    if (budget <= 0) { hidden += g.evs.length; continue; }
+    const open = isDayOpen(g.k, groups.length);
+    const d = days.get(g.k) || {n: g.evs.length, s: g.evs.reduce((a, e) => a + e.duree_s, 0), nn: g.evs.filter(e => e.nuit).length};
+    const isNew = g.evs.some(e => NEW_FILES.has(e.fichier));
+    const id = 'd-' + g.k;
+    html += `<section class="dgroup${open ? ' open' : ''}" data-day="${g.k}">
+      <button type="button" class="day${isNew ? ' has-new' : ''}" aria-expanded="${open}" aria-controls="${id}">
+        <svg class="chev" viewBox="0 0 16 16" aria-hidden="true"><path d="M6 3.5 10.5 8 6 12.5" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+        <span class="dname">${esc(frDay(g.k))}</span>
+        <span class="dsum">${d.n} épisode${d.n > 1 ? 's' : ''} · ${fmtDur(d.s)}${d.nn ? ` · <b>${d.nn} la nuit</b>` : ''}</span>
+      </button>
+      <div class="dbody" id="${id}">`;
+    if (open) {
+      const shown = g.evs.slice(0, budget);
+      html += shown.map(card).join('');
+      budget -= shown.length; hidden += g.evs.length - shown.length;
     }
-    const cats = [...e.tags].sort((a, b) => catOrder(a) - catOrder(b));
-    const score = Math.max(0, ...cats.map(c => e.scores?.[c] || 0));
-    const masked = parseFloat(e.parole_masquee_s) || 0;
-    html += `<article class="ev ${catCol(cats[0])} ${e.faux_positif ? 'fp' : ''} ${NEW_FILES.has(e.fichier) ? 'new' : ''}" data-f="${esc(e.fichier)}">
+    html += '</div></section>';
+  }
+  if (hidden) html += `<button class="more" id="more">Afficher plus (${hidden} restants)</button>`;
+  $('#list').innerHTML = html;
+}
+
+function card(e) {
+  const cats = [...e.tags].sort((a, b) => catOrder(a) - catOrder(b));
+  const score = Math.max(0, ...cats.map(c => e.scores?.[c] || 0));
+  const masked = parseFloat(e.parole_masquee_s) || 0;
+  return `<article class="ev ${catCol(cats[0])} ${e.faux_positif ? 'fp' : ''} ${NEW_FILES.has(e.fichier) ? 'new' : ''}" data-f="${esc(e.fichier)}">
       <div class="row1">
         <span class="time">${esc(e.debut.slice(11, 19))}</span>
         ${cats.map(c => `<span class="badge ${catCol(c)}">${esc(catLabel(c))}</span>`).join('')}
@@ -155,10 +182,39 @@ function render() {
       </div>
       ${e.note ? `<p class="note">${esc(e.note)}</p>` : ''}
     </article>`;
-  }
-  if (list.length > LIMIT) html += `<button class="more" id="more">Afficher plus (${list.length - LIMIT} restants)</button>`;
-  $('#list').innerHTML = html;
 }
+
+/* ---------- journées repliables ---------- */
+const DAYS_KEY = 'barkdog.jours';
+let DAY_STATE = (() => { try { return JSON.parse(localStorage.getItem(DAYS_KEY)) || {}; } catch { return {}; } })();
+function saveDays() {
+  const limit = ymd(new Date(Date.now() - 120 * 864e5));            // on oublie les choix de plus de 4 mois
+  for (const k of Object.keys(DAY_STATE)) if (k < limit) delete DAY_STATE[k];
+  try { localStorage.setItem(DAYS_KEY, JSON.stringify(DAY_STATE)); } catch { /* stockage indisponible */ }
+}
+function isDayOpen(k, nGroups) {
+  if (nGroups === 1 || $('#from').value && $('#from').value === $('#to').value) return true;   // un seul jour affiché
+  if (k in DAY_STATE) return DAY_STATE[k];
+  const t = new Date(), y = new Date(t); y.setDate(t.getDate() - 1);
+  return k === ymd(t) || k === ymd(y);                             // aujourd'hui et hier ouverts par défaut
+}
+function setDays(open) {
+  $$('#list .dgroup').forEach(g => DAY_STATE[g.dataset.day] = open);
+  saveDays(); render();
+}
+$('#daytools').addEventListener('click', ev => {
+  const b = ev.target.closest('button[data-days]'); if (b) setDays(b.dataset.days === 'open');
+});
+
+/* Le bandeau du jour reste collé sous la barre du haut (et sous le bandeau d'enregistrement s'il est affiché). */
+function stickyTop() {
+  const bar = $('.appbar'), rec = $('#recbanner');
+  let top = bar ? bar.getBoundingClientRect().height : 0;
+  if (rec && !rec.hidden && rec.offsetHeight) top = Math.max(top, parseFloat(getComputedStyle(rec).top) || 0) + rec.offsetHeight + 6;
+  document.documentElement.style.setProperty('--sticky-top', Math.round(top) + 'px');
+}
+if ('ResizeObserver' in window) { const ro = new ResizeObserver(stickyTop); ['.appbar', '#recbanner'].forEach(s => $(s) && ro.observe($(s))); }
+addEventListener('resize', stickyTop); stickyTop();
 
 /* ---------- chronologie dans l'enregistrement ---------- */
 function timeline(e) {
@@ -214,6 +270,15 @@ async function fileAction(f, act) {
 }
 $('#list').addEventListener('click', ev => {
   if (ev.target.id === 'more') { LIMIT += 60; render(); return; }
+  const dh = ev.target.closest('button.day');
+  if (dh) {
+    const k = dh.closest('.dgroup').dataset.day, open = dh.getAttribute('aria-expanded') !== 'true';
+    DAY_STATE[k] = open; saveDays();
+    const top = dh.getBoundingClientRect().top; render();
+    const again = $(`#list .dgroup[data-day="${k}"] .day`);         // garder le bandeau sous le doigt
+    if (again) scrollBy(0, again.getBoundingClientRect().top - top);
+    return;
+  }
   const chip = ev.target.closest('.chip[data-seek]');
   if (chip) { seekAudio(chip.closest('.ev'), +chip.dataset.seek); return; }
   const tl = ev.target.closest('.tl');

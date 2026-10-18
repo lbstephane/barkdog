@@ -2,6 +2,8 @@
 
 [![pipeline](https://gitlab.com/lbstephane/barkdog/badges/main/pipeline.svg)](https://gitlab.com/lbstephane/barkdog/-/pipelines)
 
+Site : **[barkdog.fr](https://barkdog.fr)**
+
 **BarkDog** est un enregistreur autonome pour Raspberry Pi. Il écoute en continu, reconnaît les nuisances choisies grâce à une IA (aboiements, hurlements, coqs, musique, travaux, pétards…) et ne garde que les épisodes. Chaque épisode est **horodaté, catégorisé et scellé par une empreinte SHA-256**. Une page web permet de tout consulter depuis un téléphone.
 
 ![BarkDog en 36 secondes](docs/barkdog.mp4)
@@ -143,6 +145,10 @@ Organisation du code :
 | `config.py` | Réglages (`config/config.json`) : validation, empreinte, différences, migration. |
 | `bark_logger.py` | Enregistreur : détection, épisodes, masquage de la parole, journal. |
 | `web.py`, `auth.py`, `static/` | Page web, en bibliothèque standard Python uniquement. |
+
+## Soutenir
+
+BarkDog est gratuit. S'il vous rend service, vous pouvez [offrir un café sur Ko-fi](https://ko-fi.com/revolution3d). Signalements et contributions : [tickets](https://gitlab.com/lbstephane/barkdog/-/issues) et merge requests.
 
 ## Licence
 
