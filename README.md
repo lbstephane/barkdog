@@ -1,6 +1,12 @@
 # BarkDog 🐕 — journal des nuisances sonores
 
+[![pipeline](https://gitlab.com/lbstephane/barkdog/badges/main/pipeline.svg)](https://gitlab.com/lbstephane/barkdog/-/pipelines)
+
 **BarkDog** est un enregistreur autonome pour Raspberry Pi. Il écoute en continu, reconnaît les nuisances choisies grâce à une IA (aboiements, hurlements, coqs, musique, travaux, pétards…) et ne garde que les épisodes. Chaque épisode est **horodaté, catégorisé et scellé par une empreinte SHA-256**. Une page web permet de tout consulter depuis un téléphone.
+
+![BarkDog en 36 secondes](docs/barkdog.mp4)
+
+Version verticale pour les réseaux sociaux : [docs/barkdog-vertical.mp4](docs/barkdog-vertical.mp4).
 
 Le but : constituer un dossier factuel (dates, heures, durées, répétition, de nuit ou de jour) sans passer ses nuits le dictaphone à la main.
 
@@ -39,7 +45,7 @@ Le but : constituer un dossier factuel (dates, heures, durées, répétition, de
 ## Installation
 
 ```bash
-git clone <url-du-depot> ~/aboiements   # garder ce nom de dossier (services et chemins)
+git clone https://gitlab.com/lbstephane/barkdog.git ~/aboiements   # garder ce nom de dossier (services et chemins)
 cd ~/aboiements
 ./install.sh
 ```

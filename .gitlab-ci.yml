@@ -1,6 +1,21 @@
 # Tests sans matériel ni modèle (micro et IA simulés).
 tests:
+  stage: test
   image: python:3.13-slim
   script:
     - pip install --quiet numpy scipy
     - python -m unittest discover -s tests -v
+
+# Site vitrine : https://lbstephane.gitlab.io/barkdog/ (branche main uniquement).
+pages:
+  stage: deploy
+  image: alpine:3.20
+  script:
+    - mkdir -p public
+    - cp -r site/. public/
+    - cp docs/barkdog.mp4 docs/barkdog-vertical.mp4 docs/barkdog-poster.jpg docs/barkdog-vertical-poster.jpg public/
+  artifacts:
+    paths:
+      - public
+  rules:
+    - if: $CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH
