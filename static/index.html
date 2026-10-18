@@ -1,0 +1,167 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="color-scheme" content="light dark">
+<meta name="referrer" content="no-referrer">
+<title>Journal des nuisances</title>
+<link rel="stylesheet" href="/static/app.css">
+<script src="/static/app.js" defer></script>
+</head>
+<body>
+<main>
+  <header class="appbar">
+    <h1>Journal des nuisances</h1>
+    <button id="gear" class="iconbtn" aria-label="Réglages" title="Réglages" aria-expanded="false" aria-controls="drawer">
+      <svg viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+        <circle cx="12" cy="12" r="3.2"/>
+        <path d="M19.4 15a1.7 1.7 0 0 0 .34 1.87l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.7 1.7 0 0 0-1.87-.34 1.7 1.7 0 0 0-1 1.55V21a2 2 0 1 1-4 0v-.09a1.7 1.7 0 0 0-1.1-1.55 1.7 1.7 0 0 0-1.87.34l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.7 1.7 0 0 0 .34-1.87 1.7 1.7 0 0 0-1.55-1H3a2 2 0 1 1 0-4h.09a1.7 1.7 0 0 0 1.55-1.1 1.7 1.7 0 0 0-.34-1.87l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.7 1.7 0 0 0 1.87.34H9a1.7 1.7 0 0 0 1-1.55V3a2 2 0 1 1 4 0v.09a1.7 1.7 0 0 0 1 1.55 1.7 1.7 0 0 0 1.87-.34l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.7 1.7 0 0 0-.34 1.87V9a1.7 1.7 0 0 0 1.55 1H21a2 2 0 1 1 0 4h-.09a1.7 1.7 0 0 0-1.55 1z"/>
+      </svg>
+    </button>
+  </header>
+  <p class="sub" id="now">Chargement…</p>
+  <div class="statusrow">
+    <div class="pills" id="status"></div>
+    <button id="svcbtn" hidden></button>
+  </div>
+  <div id="recbanner" class="recbanner" hidden role="status" aria-live="polite"></div>
+  <div id="toast" class="toast" hidden role="status"></div>
+
+  <h2>Mode test</h2>
+  <div class="card">
+    <div class="livehead">
+      <span class="livestate" id="livestate">Scores de l'IA en direct, deux fois par seconde.</span>
+      <button id="livebtn">Démarrer</button>
+    </div>
+    <div id="livepanel">
+      <label class="chk"><input type="checkbox" id="nosave" checked> Ne pas enregistrer pendant le test</label>
+      <p class="notl">L'enregistrement reprend tout seul 5 min max après la fermeture de la page, et au bout de 30 min de test.</p>
+      <div id="liverows"></div>
+      <div class="hears" id="hears"></div>
+      <div id="livelog"></div>
+    </div>
+  </div>
+
+  <h2>Période</h2>
+  <div class="card">
+    <div class="filters">
+      <label>Du<input type="date" id="from"></label>
+      <label>Au<input type="date" id="to"></label>
+      <label>Catégorie<select id="cat"><option value="">Toutes</option></select></label>
+      <label class="chk"><input type="checkbox" id="night"> Nuit seulement (22h–7h)</label>
+      <label class="chk"><input type="checkbox" id="hidefp" checked> Masquer les faux positifs</label>
+      <label class="chk"><input type="checkbox" id="trash"> Voir la corbeille <span class="mute" id="trashcount"></span></label>
+    </div>
+    <div class="quick">
+      <button data-range="1">Aujourd'hui</button>
+      <button data-range="7">7 jours</button>
+      <button data-range="30">30 jours</button>
+      <button data-range="all">Tout</button>
+    </div>
+  </div>
+
+  <h2>Résumé</h2>
+  <div class="kpis" id="kpis"></div>
+
+  <h2>Par jour</h2>
+  <div class="card">
+    <div class="chart" id="chart"></div>
+    <div class="axis" id="axis"></div>
+    <div class="legend"><span><i class="ld"></i>Jour (7h–22h)</span><span><i class="ln"></i>Nuit (22h–7h)</span><span>Toucher une barre pour voir ce jour</span></div>
+  </div>
+
+  <h2>Exports</h2>
+  <div class="actions">
+    <button id="exp-events">Épisodes filtrés (CSV)</button>
+    <button id="exp-days">Synthèse par jour (CSV)</button>
+    <a class="btn" href="/export/journal.csv">Journal brut d'origine</a>
+    <a class="btn" href="/export/historique.csv">Historique (marche, réglages…)</a>
+    <a class="btn" href="/export/ignores.csv">Épisodes écartés</a>
+    <button id="refresh">Actualiser</button>
+  </div>
+
+  <h2>Épisodes</h2>
+  <div class="trashbar">Corbeille : ces enregistrements ne sont plus comptés. « Restaurer » les remet en place, « Supprimer définitivement » efface le fichier de la carte (la ligne reste dans le journal brut).</div>
+  <div id="list"></div>
+
+  <footer>Outil d'aide à la constitution d'un dossier : les niveaux sont relatifs (micro non calibré) et ne remplacent ni une mesure acoustique, ni un constat de commissaire de justice. Les annotations sont enregistrées à part : le journal d'origine n'est jamais modifié et un fichier audio n'est effacé que par une suppression définitive depuis la corbeille.</footer>
+</main>
+
+<div id="backdrop" class="backdrop" hidden></div>
+<aside id="drawer" class="drawer" role="dialog" aria-modal="true" aria-labelledby="drawer-title" inert>
+  <header class="drawer-head">
+    <h2 id="drawer-title">Réglages <span class="mute" id="cfgid"></span></h2>
+    <button id="drawer-close" class="iconbtn" aria-label="Fermer les réglages" title="Fermer">✕</button>
+  </header>
+  <div class="drawer-body">
+    <form id="cfgform" autocomplete="off">
+      <fieldset>
+        <legend>Nuisances à enregistrer</legend>
+        <p class="help">Cochez ce qui vous gêne. Le seuil propre à une nuisance est facultatif (sinon, seuil général).</p>
+        <div id="cfg-profils"></div>
+      </fieldset>
+      <fieldset>
+        <legend>Sons à ignorer</legend>
+        <p class="help">Quand l'un de ces sons domine, la détection est annulée (ex. canards confondus avec des aboiements).</p>
+        <div id="cfg-excl" class="grid2"></div>
+      </fieldset>
+      <fieldset>
+        <legend>Vie privée</legend>
+        <p class="help">Enregistrer les paroles d'autrui sans consentement est interdit (art. 226-1 du Code pénal). Le masquage rend muets les passages où l'IA entend une voix.</p>
+        <div class="radios" id="cfg-parole">
+          <label class="chk"><input type="radio" name="parole" value="masquer"> Masquer la parole dans les fichiers (recommandé)</label>
+          <label class="chk"><input type="radio" name="parole" value="ignorer_episode"> Ne pas enregistrer un épisode surtout composé de parole</label>
+          <label class="chk"><input type="radio" name="parole" value="desactive"> Désactivé (à vos risques)</label>
+        </div>
+        <label>Sensibilité de la détection de voix<span class="rangeval"><input type="range" id="cfg-seuil_parole" min="0.1" max="0.95" step="0.05"><output for="cfg-seuil_parole"></output></span></label>
+      </fieldset>
+      <fieldset>
+        <legend>Détection</legend>
+        <label>Seuil général (plus bas = plus sensible)<span class="rangeval"><input type="range" id="cfg-seuil" min="0.05" max="0.95" step="0.05"><output for="cfg-seuil"></output></span></label>
+        <div class="grid2">
+          <label>Détections minimum par épisode<input type="number" id="cfg-min_detections" min="1" max="60" step="1"><span class="help">3 = un son isolé (1 s) est ignoré</span></label>
+          <label>Déclencher aussi au-delà de (dBFS)<input type="number" id="cfg-seuil_niveau_dbfs" min="-80" max="0" step="1" placeholder="désactivé"><span class="help">Niveau relatif, non calibré : vide = désactivé</span></label>
+        </div>
+      </fieldset>
+      <fieldset>
+        <legend>Micro et audio</legend>
+        <div class="grid3">
+          <label>Micro<select id="cfg-micro"></select></label>
+          <label>Gain logiciel<input type="number" id="cfg-gain" min="0.1" max="20" step="0.1"></label>
+          <label>Filtre coupe-bas<select id="cfg-coupe_bas_hz">
+            <option value="0">Aucun</option><option value="100">100 Hz</option><option value="150">150 Hz</option>
+            <option value="200">200 Hz (ronflement secteur)</option><option value="250">250 Hz</option><option value="300">300 Hz</option>
+          </select></label>
+        </div>
+        <p class="help">Changer de micro redémarre l'écoute (environ 10 s). Les autres réglages s'appliquent sans interruption.</p>
+      </fieldset>
+      <fieldset>
+        <legend>Épisodes</legend>
+        <div class="grid3">
+          <label>Pré-enregistrement (s)<input type="number" id="cfg-pre_s" min="0" max="60" step="1"></label>
+          <label>Calme pour clore (s)<input type="number" id="cfg-calme_s" min="2" max="120" step="1"></label>
+          <label>Durée max d'un fichier (s)<input type="number" id="cfg-max_s" min="10" max="1800" step="10"></label>
+        </div>
+      </fieldset>
+      <div class="formbar sticky">
+        <button type="submit" class="primary" id="cfgsave">Enregistrer les réglages</button>
+        <button type="button" id="cfgreset">Annuler les modifications</button>
+        <span class="mute" id="cfgmsg"></span>
+      </div>
+    </form>
+
+    <fieldset>
+      <legend>Compte</legend>
+      <form id="pwform" class="grid3" autocomplete="off">
+        <label>Mot de passe actuel<input type="password" id="pw-old" autocomplete="current-password" required></label>
+        <label>Nouveau (8 car. min.)<input type="password" id="pw-new" autocomplete="new-password" minlength="8" required></label>
+        <label>Confirmation<input type="password" id="pw-new2" autocomplete="new-password" minlength="8" required></label>
+        <div class="formbar"><button type="submit">Changer le mot de passe</button><span class="mute" id="pwmsg"></span></div>
+      </form>
+      <div class="formbar"><button id="logout" type="button" class="danger">Se déconnecter</button></div>
+    </fieldset>
+  </div>
+</aside>
+</body>
+</html>

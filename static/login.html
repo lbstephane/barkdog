@@ -1,0 +1,23 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="color-scheme" content="light dark">
+<meta name="referrer" content="no-referrer">
+<title>Connexion · Journal des nuisances</title>
+<link rel="stylesheet" href="/static/app.css">
+<script src="/static/login.js" defer></script>
+</head>
+<body>
+<main class="login">
+  <h1>Journal des nuisances</h1>
+  <p class="sub">Accès réservé. Ne pas exposer cette page directement sur Internet : utilisez un VPN (Tailscale, WireGuard).</p>
+  <form id="loginform" class="card">
+    <label>Mot de passe<input type="password" id="pw" autocomplete="current-password" required autofocus></label>
+    <button type="submit" class="primary" id="go">Se connecter</button>
+    <div class="msg err" id="msg" role="alert"></div>
+  </form>
+</main>
+</body>
+</html>

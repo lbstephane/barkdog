@@ -1,0 +1,15 @@
+# Données personnelles et secrets : ne jamais publier
+enregistrements/
+config/
+web_password.txt
+aboiements.conf*
+
+# Téléchargé à l'installation
+yamnet.tflite
+yamnet_class_map.csv
+
+# Environnement
+.venv/
+__pycache__/
+*.pyc
+*.zip

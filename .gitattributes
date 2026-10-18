@@ -1,0 +1,6 @@
+# Fins de ligne Unix partout (le code tourne sur Raspberry Pi) : évite un install.sh en CRLF depuis Windows
+* text=auto eol=lf
+*.sh text eol=lf
+*.py text eol=lf
+*.wav binary
+*.tflite binary
