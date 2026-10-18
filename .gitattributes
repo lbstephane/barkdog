@@ -4,3 +4,5 @@
 *.py text eol=lf
 *.wav binary
 *.tflite binary
+*.mp4 binary
+*.jpg binary
