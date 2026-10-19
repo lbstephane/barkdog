@@ -2,7 +2,7 @@
 
 [![pipeline](https://gitlab.com/lbstephane/barkdog/badges/main/pipeline.svg)](https://gitlab.com/lbstephane/barkdog/-/pipelines)
 
-Site : **[barkdog.fr](https://barkdog.fr)**
+Site : **[barkdog.fr](https://barkdog.fr)** · Développement, tickets et contributions sur **[GitLab](https://gitlab.com/lbstephane/barkdog)** (le dépôt GitHub est un miroir).
 
 **BarkDog** est un enregistreur autonome pour Raspberry Pi. Il écoute en continu, reconnaît les nuisances choisies grâce à une IA (aboiements, hurlements, coqs, musique, travaux, pétards…) et ne garde que les épisodes. Chaque épisode est **horodaté, catégorisé et scellé par une empreinte SHA-256**. Une page web permet de tout consulter depuis un téléphone.
 
