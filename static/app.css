@@ -170,3 +170,4 @@ legend{font-weight:600;font-size:13.5px;padding:0 6px}
 .linkbtn{border:0;background:none;color:var(--mute);text-decoration:underline;padding:2px 4px;min-height:0;font-size:13px}
 .linkbtn:hover{color:var(--ink)}
 #lang{max-width:220px}
+.ver{display:block;margin-top:6px;font-variant-numeric:tabular-nums}

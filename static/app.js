@@ -339,6 +339,7 @@ async function loadStatus() {
   try {
     const s = await api('/api/status');
     const pills = [], age = s.dernier_signe_de_vie_s;
+    if (s.version) $('#version').textContent = `BarkDog v${s.version}`;
     if (s.ecoute_active) pills.push(['ok', t('Écoute active')]);
     else if (s.service === 'inactive') pills.push(['bad', t('Écoute arrêtée')]);
     else if (s.service === 'failed' || s.service === 'activating') pills.push(['bad', t('Écoute en échec (micro débranché ?)')]);

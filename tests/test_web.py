@@ -206,6 +206,7 @@ class WebTest(unittest.TestCase):
         self.req("POST", "/api/testmode", {"on": False}, HDR, cookie=self.cookie)
         r, d = self.req("GET", "/api/status", cookie=self.cookie)
         self.assertFalse(json.loads(d)["mode_test"]["actif"])
+        self.assertEqual(json.loads(d)["version"], (Path(web.__file__).parent / "VERSION").read_text().strip())
 
     def test_body_limits(self):
         r, _ = self.req("POST", "/api/annotate", ["liste"], HDR, cookie=self.cookie)

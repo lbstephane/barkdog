@@ -154,6 +154,10 @@ Translations: the interface is in French by default and switches to English base
 
 BarkDog is free. If it helps you, you can [buy me a coffee on Ko-fi](https://ko-fi.com/revolution3d). Bug reports and contributions: [issues](https://gitlab.com/lbstephane/barkdog/-/issues) and merge requests on GitLab.
 
+## Changelog
+
+See [CHANGELOG.md](CHANGELOG.md).
+
 ## Licence
 
 [MIT](LICENSE), without warranty of any kind. You alone are responsible for how the recordings are used, in particular with regard to other people's privacy.

@@ -32,6 +32,10 @@ import config as cfgmod
 from auth import Auth
 
 HERE = Path(__file__).resolve().parent
+try:
+    VERSION = (HERE / "VERSION").read_text(encoding="utf-8").strip()
+except OSError:
+    VERSION = "?"
 STATIC = HERE / "static"
 ANN_LOCK = threading.Lock()
 CFG_LOCK = threading.Lock()
@@ -613,6 +617,7 @@ class Handler(BaseHTTPRequestHandler):
         du = shutil.disk_usage(self.out)
         cfg = self.S.cfg()
         return {
+            "version": VERSION,
             "maintenant": now_iso(), "service": service, "controle_service": self.S.can_control,
             "journal_version": "|".join(jv), "enregistrement": rec,
             "mode_test": {"actif": True, "reste_s": round(float(t["since"]) + TEST_MAX_S - time.time())} if t else {"actif": False},

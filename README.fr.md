@@ -150,6 +150,10 @@ Organisation du code :
 
 BarkDog est gratuit. S'il vous rend service, vous pouvez [offrir un café sur Ko-fi](https://ko-fi.com/revolution3d). Signalements et contributions : [tickets](https://gitlab.com/lbstephane/barkdog/-/issues) et merge requests.
 
+## Versions
+
+Voir [CHANGELOG.md](CHANGELOG.md).
+
 ## Licence
 
 [MIT](LICENSE), sans garantie d'aucune sorte. Vous restez seul responsable de l'usage des enregistrements, notamment au regard de la vie privée des tiers.
