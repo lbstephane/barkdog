@@ -8,9 +8,9 @@ Website: **[barkdog.fr](https://barkdog.fr)** · Development, issues and contrib
 
 **BarkDog** is a standalone recorder for the Raspberry Pi. It listens continuously, recognises the nuisances you pick with an on-device AI (barking, howling, roosters, music, construction work, fireworks…) and keeps only the episodes. Each episode is **timestamped, categorised and sealed with a SHA-256 fingerprint**. A web page lets you browse everything from your phone.
 
-![BarkDog in 36 seconds](docs/barkdog.mp4)
+![BarkDog in 36 seconds](docs/barkdog-en.mp4)
 
-Vertical version for social media: [docs/barkdog-vertical.mp4](docs/barkdog-vertical.mp4).
+Vertical version for social media: [docs/barkdog-vertical-en.mp4](docs/barkdog-vertical-en.mp4).
 
 The goal: build a factual record (dates, times, durations, repetition, night or day) without spending your nights holding a voice recorder.
 

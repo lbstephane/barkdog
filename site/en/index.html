@@ -1,0 +1,220 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>BarkDog · a noise nuisance log on a Raspberry Pi</title>
+<meta name="description" content="BarkDog listens at night, recognises barking, howling and other nuisances with an on-device AI, and keeps only timestamped, categorised and sealed episodes. Free software for the Raspberry Pi.">
+<meta name="theme-color" content="#0b1426">
+<meta property="og:type" content="website">
+<meta property="og:title" content="BarkDog · a noise nuisance log">
+<meta property="og:description" content="A Raspberry Pi that documents noise nuisances: on-device AI, timestamped and sealed episodes, voices masked. Free and open source.">
+<meta property="og:url" content="https://barkdog.fr/en/">
+<meta property="og:image" content="https://barkdog.fr/barkdog-en-poster.jpg">
+<meta property="og:video" content="https://barkdog.fr/barkdog-en.mp4">
+<meta property="og:locale" content="en_GB">
+<meta property="og:locale:alternate" content="fr_FR">
+<meta name="twitter:card" content="summary_large_image">
+<link rel="canonical" href="https://barkdog.fr/en/">
+<link rel="alternate" hreflang="fr" href="https://barkdog.fr/">
+<link rel="alternate" hreflang="en" href="https://barkdog.fr/en/">
+<link rel="alternate" hreflang="x-default" href="https://barkdog.fr/en/">
+<link rel="icon" href="../favicon.svg" type="image/svg+xml">
+<link rel="preload" href="../fonts/brico-800.woff2" as="font" type="font/woff2" crossorigin>
+<link rel="stylesheet" href="../style.css">
+<script src="../lang.js"></script>
+<script src="../main.js" defer></script>
+</head>
+<body>
+
+<header class="top">
+  <div class="inner">
+    <a class="brand" href="#">Bark<span>Dog</span></a>
+    <nav aria-label="Sections">
+      <a href="#how">How it works</a>
+      <a href="#hardware">Hardware</a>
+      <a href="#install">Install</a>
+      <a href="#faq">FAQ</a>
+      <a class="git" href="https://gitlab.com/lbstephane/barkdog">GitLab</a>
+      <span class="langs"><a href="../" hreflang="fr" lang="fr" data-lang="fr" title="Version française">FR</a><b aria-current="true">EN</b></span>
+    </nav>
+  </div>
+</header>
+
+<main>
+  <section class="hero">
+    <div class="inner hero-grid">
+      <div class="hero-text">
+        <p class="kicker">Free software · Raspberry Pi</p>
+        <h1>The noise nuisance log that keeps watch all night for you.</h1>
+        <p class="lead">BarkDog listens, recognises barking, howling and other nuisances with an AI that runs on the box itself, and keeps only the episodes. Each one is timestamped, categorised and sealed. Human voices are silenced.</p>
+        <div class="cta">
+          <a class="btn primary" href="#install">Install BarkDog</a>
+          <a class="btn" href="https://gitlab.com/lbstephane/barkdog">Source code</a>
+        </div>
+      </div>
+      <figure class="film">
+        <video id="film" controls playsinline preload="metadata" poster="../barkdog-en-poster.jpg"
+               data-h="../barkdog-en.mp4" data-v="../barkdog-vertical-en.mp4" data-hp="../barkdog-en-poster.jpg" data-vp="../barkdog-vertical-en-poster.jpg">
+          <source src="../barkdog-en.mp4" type="video/mp4">
+        </video>
+        <figcaption>BarkDog in 36 seconds. The dashboard shows sample data.</figcaption>
+      </figure>
+    </div>
+  </section>
+
+  <section class="facts" aria-label="At a glance">
+    <div class="inner facts-grid">
+      <div><b>100%</b><span>local: no sound ever leaves the box</span></div>
+      <div><b>521</b><span>sound classes recognised by YAMNet</span></div>
+      <div><b>SHA-256</b><span>one fingerprint per recorded file</span></div>
+      <div><b>0.5 s</b><span>between two AI analyses</span></div>
+    </div>
+  </section>
+
+  <section id="how" class="band">
+    <div class="inner">
+      <h2>How it works</h2>
+      <ol class="steps">
+        <li>
+          <h3>It listens</h3>
+          <p>A USB microphone plugged into the Pi captures sound continuously. A high-pass filter removes electrical hum, and a software gain can be adjusted from the web page.</p>
+        </li>
+        <li>
+          <h3>It recognises</h3>
+          <p>Every half second, the YAMNet model scores each nuisance you selected. Above the threshold, an episode starts. Sounds to ignore, such as ducks, cancel the detection.</p>
+        </li>
+        <li>
+          <h3>It keeps the episode</h3>
+          <p>The 10 seconds before the trigger are kept. The episode closes after an adjustable quiet time. The WAV file gets a per-category timeline and a SHA-256 fingerprint written to the log.</p>
+        </li>
+        <li>
+          <h3>You review</h3>
+          <p>From your phone: playback with the howling timeline, day and night statistics, notes, trash and CSV exports for your records.</p>
+        </li>
+      </ol>
+    </div>
+  </section>
+
+  <section class="band alt">
+    <div class="inner two">
+      <div>
+        <h2>Pick your nuisances</h2>
+        <p class="muted">Tick what bothers you in the settings. Each nuisance can have its own threshold.</p>
+      </div>
+      <div class="chips-block">
+        <p class="group">Animals</p>
+        <ul class="chips"><li class="on">Barking</li><li class="on">Howling</li><li class="on">Growling, whimpering</li><li>Rooster crowing</li><li>Meowing</li></ul>
+        <p class="group">Human activity</p>
+        <ul class="chips"><li>Music</li><li>Bass, drums</li><li>DIY, construction work</li><li>Firecrackers, fireworks</li></ul>
+        <p class="group">Engines and alarms</p>
+        <ul class="chips"><li>Lawn mower, chainsaw</li><li>Motorbikes, scooters</li><li>Alarms, sirens</li><li>Horns</li><li>High sound level</li></ul>
+        <p class="group">Sounds to ignore</p>
+        <ul class="chips ignore"><li class="on">Ducks, geese</li><li>Songbirds</li><li>Wind, rain, thunder</li><li>Traffic</li></ul>
+        <p class="legend"><i></i> on by default</p>
+      </div>
+    </div>
+  </section>
+
+  <section class="band privacy">
+    <div class="inner two">
+      <div>
+        <p class="kicker violet">Privacy</p>
+        <h2>Human voices are silenced, by default.</h2>
+      </div>
+      <div class="prose">
+        <p>In many countries, recording other people's private conversations without their consent is an offence. When the AI hears a voice, BarkDog erases that passage from the file and flags it on the timeline. An episode made up mostly of speech can also be discarded entirely.</p>
+        <p>The box talks to no online service. The web page is password-protected and stays on your network, or behind a VPN if you want to reach it from outside.</p>
+      </div>
+    </div>
+  </section>
+
+  <section id="hardware" class="band">
+    <div class="inner">
+      <h2>Hardware</h2>
+      <div class="table-wrap">
+        <table>
+          <thead><tr><th scope="col"></th><th scope="col">Recommended</th><th scope="col">Good to know</th></tr></thead>
+          <tbody>
+            <tr><th scope="row">Board</th><td>Raspberry Pi Zero 2 W, 3, 4 or 5</td><td>Raspberry Pi OS 64-bit; the Lite version is enough.</td></tr>
+            <tr><th scope="row">Microphone</th><td>USB microphone, or USB sound card and mic</td><td>Avoid conference mics with noise reduction: they erase distant barking.</td></tr>
+            <tr><th scope="row">Power supply</th><td>5 V 2.5 A, or 5 V 3 A USB-C for the Pi 4</td><td>A good-quality supply also keeps hum out of the recordings.</td></tr>
+            <tr><th scope="row">Storage</th><td>16 GB microSD card</td><td>About 1.9 MB per recorded minute.</td></tr>
+            <tr><th scope="row">Time</th><td>Network at boot, or a DS3231 RTC module</td><td>The Pi has no battery-backed clock; the page warns when the time is not synchronised.</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </section>
+
+  <section id="install" class="band alt">
+    <div class="inner two">
+      <div>
+        <h2>Install</h2>
+        <p class="muted">On the Pi, over SSH. The script installs the dependencies and the model, sets the time zone, asks for the web page password and creates the two services, started at boot.</p>
+      </div>
+      <div>
+        <div class="code">
+          <button type="button" class="copy" data-target="cmd" aria-label="Copy the commands">Copy</button>
+          <pre id="cmd"><code>sudo apt install -y git
+git clone https://gitlab.com/lbstephane/barkdog.git ~/barkdog
+cd ~/barkdog && TZ_NAME=Europe/London ./install.sh</code></pre>
+        </div>
+        <p class="after">Replace <code>Europe/London</code> with your time zone. Then open <code>http://&lt;pi-name&gt;.local:8080</code> from your home Wi-Fi; the interface is available in English and French. To update: <code>git pull &amp;&amp; ./install.sh</code>, your recordings and settings are kept.</p>
+      </div>
+    </div>
+  </section>
+
+  <section id="faq" class="band">
+    <div class="inner faq">
+      <h2>Frequently asked questions</h2>
+      <details>
+        <summary>Do the recordings count as evidence?</summary>
+        <p>BarkDog helps you build a factual record: dates, times, durations, repetition. It replaces neither a regulatory acoustic measurement nor an official report. Levels are relative, as the microphone is not calibrated. For any proceedings, seek advice from a mediator, a lawyer or your local authority.</p>
+      </details>
+      <details>
+        <summary>Am I allowed to record?</summary>
+        <p>Recording noise is generally not forbidden in itself, but other people's private conversations are protected in many countries. That is why voice masking is on by default. Point the microphone at the source of the nuisance, not at homes or public walkways. Turning masking off is your responsibility.</p>
+      </details>
+      <details>
+        <summary>Does it need an Internet connection?</summary>
+        <p>Only for installation and to set the Pi's clock at boot. Listening, the AI and the web page all work offline.</p>
+      </details>
+      <details>
+        <summary>Can I check the page from outside my home?</summary>
+        <p>Yes, through a VPN such as Tailscale or WireGuard. Do not open a port on your router: the page gives access to sensitive recordings.</p>
+      </details>
+      <details>
+        <summary>What if the AI gets it wrong?</summary>
+        <p>Test mode shows live scores against the thresholds, without recording. You adjust the sensitivity, the minimum number of detections and the sounds to ignore. In the episode list, a false positive is flagged in one click without touching the original log.</p>
+      </details>
+      <details>
+        <summary>Why are some file names in French?</summary>
+        <p>The project started in France, so recording and log file names (for example <code>aboiement</code> for barking, <code>hurlement</code> for howling) are in French. Their format is documented in the README.</p>
+      </details>
+    </div>
+  </section>
+
+  <section id="support" class="band support">
+    <div class="inner two">
+      <div>
+        <h2>Support the project</h2>
+        <p class="muted">BarkDog is and will remain free, under the MIT licence. If it helps you, a coffee helps pay for the time spent and the test hardware.</p>
+      </div>
+      <div class="support-actions">
+        <a class="btn kofi" id="kofi" href="https://ko-fi.com/revolution3d">Buy me a coffee on Ko-fi</a>
+        <a class="btn" href="https://gitlab.com/lbstephane/barkdog/-/issues">Report a problem</a>
+        <a class="btn" href="https://gitlab.com/lbstephane/barkdog/-/merge_requests">Contribute code</a>
+      </div>
+    </div>
+  </section>
+</main>
+
+<footer>
+  <div class="inner foot">
+    <p><b>BarkDog</b> · <a href="https://gitlab.com/lbstephane/barkdog/-/blob/main/LICENSE">MIT</a> licence, without warranty. YAMNet model © Google, Apache 2.0 licence.</p>
+    <p>This site sets no cookies and loads nothing from any other site.</p>
+  </div>
+</footer>
+</body>
+</html>

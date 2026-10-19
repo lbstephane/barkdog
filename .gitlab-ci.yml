@@ -13,7 +13,7 @@ pages:
   script:
     - mkdir -p public
     - cp -r site/. public/
-    - cp docs/barkdog.mp4 docs/barkdog-vertical.mp4 docs/barkdog-poster.jpg docs/barkdog-vertical-poster.jpg public/
+    - cp docs/barkdog*.mp4 docs/barkdog*-poster.jpg public/
   artifacts:
     paths:
       - public
