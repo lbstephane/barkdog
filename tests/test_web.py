@@ -74,6 +74,19 @@ class WebTest(unittest.TestCase):
         sc = r.getheader("Set-Cookie") or ""
         return sc.split(";")[0].split("=", 1)[1] if r.status == 200 else None
 
+    # ---- langue des messages
+    def test_error_messages_translated(self):
+        self.assertEqual(web.translate_message("mot de passe incorrect", "en"), "wrong password")
+        self.assertEqual(web.translate_message("trop de tentatives, réessayer dans 3 min", "en"), "too many attempts, try again in 3 min")
+        self.assertEqual(web.translate_message("seuil : doit être entre 0.05 et 0.95", "en"), "seuil: must be between 0.05 and 0.95")
+        self.assertEqual(web.translate_message("mot de passe incorrect", "fr"), "mot de passe incorrect")
+        bad = {"config": {"profils": [], "audio": {"seuil_niveau_dbfs": None}}}
+        r, d = self.req("POST", "/api/config", bad, HDR | {"X-Lang": "en"}, cookie=self.cookie)
+        self.assertEqual((r.status, json.loads(d)["erreur"]), (400, "choose at least one nuisance (or a sound level threshold)"))
+        r, d = self.req("POST", "/api/config", bad, HDR, cookie=self.cookie)
+        self.assertIn("choisir au moins une nuisance", json.loads(d)["erreur"])
+        self.assertEqual(self.req("GET", "/static/i18n.js")[0].status, 200)     # public : la page de connexion en a besoin
+
     # ---- accès
     def test_unauthenticated(self):
         r, _ = self.req("GET", "/")

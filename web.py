@@ -15,6 +15,7 @@ import csv
 import datetime as dt
 import ipaddress
 import json
+import re
 import os
 import shutil
 import subprocess
@@ -48,8 +49,9 @@ STATIC_FILES = {
     "/static/app.js": ("app.js", "text/javascript; charset=utf-8"),
     "/static/app.css": ("app.css", "text/css; charset=utf-8"),
     "/static/login.js": ("login.js", "text/javascript; charset=utf-8"),
+    "/static/i18n.js": ("i18n.js", "text/javascript; charset=utf-8"),
 }
-PUBLIC = {"/login", "/static/app.css", "/static/login.js", "/api/login", "/api/session"}
+PUBLIC = {"/login", "/static/app.css", "/static/login.js", "/static/i18n.js", "/api/login", "/api/session"}
 
 SECURITY_HEADERS = [
     ("Content-Security-Policy", "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; "
@@ -229,8 +231,15 @@ class Handler(BaseHTTPRequestHandler):
         if self.command != "HEAD":
             self.wfile.write(body)
 
+    def lang(self):
+        v = (self.headers.get("X-Lang") or "").strip().lower()
+        if v in ("fr", "en"):
+            return v
+        accept = (self.headers.get("Accept-Language") or "").lower()
+        return "fr" if accept.startswith("fr") or not accept else "en"
+
     def send_error_json(self, status, message):
-        self.send_json({"erreur": message}, status)
+        self.send_json({"erreur": translate_message(message, self.lang())}, status)
 
     def redirect(self, location):
         self.send_response(302)
@@ -613,6 +622,53 @@ class Handler(BaseHTTPRequestHandler):
             "disque_libre_go": round(du.free / 1e9, 1), "disque_total_go": round(du.total / 1e9, 1),
             "reglages": cfgmod.config_id(cfg), "reglages_ecoute": (live or {}).get("reglages"),
         }
+
+
+# Messages d'erreur renvoyés à la page : français par défaut, anglais si la page le demande (en-tête X-Lang).
+MSG_EN = {
+    "connexion requise": "sign-in required",
+    "fichier introuvable": "file not found",
+    "pas encore de données": "no data yet",
+    "page introuvable": "page not found",
+    "requête refusée (origine)": "request refused (origin)",
+    "requête invalide": "invalid request",
+    "aucun mot de passe défini : lancer « python3 auth.py --set » sur le boîtier": "no password set: run “python3 auth.py --set” on the box",
+    "mot de passe incorrect": "wrong password",
+    "mot de passe actuel incorrect": "current password is wrong",
+    "fichier invalide": "invalid file",
+    "fichier absent de la corbeille": "file is not in the trash",
+    "un fichier du même nom existe déjà": "a file with the same name already exists",
+    "action invalide": "invalid action",
+    "pilotage non autorisé : relancer install.sh": "control not allowed: run install.sh again",
+    "format invalide": "invalid format",
+    "profils : liste attendue": "profiles: list expected",
+    "exclusions inconnues": "unknown exclusions",
+    "seuils_profils : objet attendu": "per-profile thresholds: object expected",
+    "parole : masquer, ignorer_episode ou desactive": "speech: masquer, ignorer_episode or desactive",
+    "micro : nom ou index attendu": "microphone: name or index expected",
+    "micro : nom invalide": "microphone: invalid name",
+    "choisir au moins une nuisance (ou un seuil de niveau sonore)": "choose at least one nuisance (or a sound level threshold)",
+}
+MSG_EN_PATTERNS = [
+    (re.compile(r"^trop de tentatives, réessayer dans (\d+) min$"), r"too many attempts, try again in \1 min"),
+    (re.compile(r"^mot de passe trop court \((\d+) caractères minimum\)$"), r"password too short (\1 characters minimum)"),
+    (re.compile(r"^(.+) : nombre attendu$"), r"\1: number expected"),
+    (re.compile(r"^(.+) : doit être entre (.+) et (.+)$"), r"\1: must be between \2 and \3"),
+    (re.compile(r"^profils inconnus : (.+)$"), r"unknown profiles: \1"),
+    (re.compile(r"^JSON invalide : (.+)$"), r"invalid JSON: \1"),
+    (re.compile(r"^échec : (.+)$"), r"failed: \1"),
+]
+
+
+def translate_message(message, lang):
+    if lang != "en":
+        return message
+    if message in MSG_EN:
+        return MSG_EN[message]
+    for pat, repl in MSG_EN_PATTERNS:
+        if pat.match(message):
+            return pat.sub(repl, message)
+    return message
 
 
 class Server(ThreadingHTTPServer):

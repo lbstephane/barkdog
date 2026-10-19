@@ -165,3 +165,8 @@ legend{font-weight:600;font-size:13.5px;padding:0 6px}
 .login form{display:flex;flex-direction:column;gap:12px}
 .login .msg{min-height:1.4em;font-size:13.5px}
 .grid2>.formbar,.grid3>.formbar{grid-column:1/-1;margin-top:4px}
+
+.langs{text-align:center;color:var(--mute);font-size:13px;margin-top:14px}
+.linkbtn{border:0;background:none;color:var(--mute);text-decoration:underline;padding:2px 4px;min-height:0;font-size:13px}
+.linkbtn:hover{color:var(--ink)}
+#lang{max-width:220px}

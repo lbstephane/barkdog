@@ -1,48 +1,51 @@
-# BarkDog 🐕 — journal des nuisances sonores
+# BarkDog 🐕 — a noise nuisance log on a Raspberry Pi
+
+🇬🇧 **English** · 🇫🇷 [Français](README.fr.md)
 
 [![pipeline](https://gitlab.com/lbstephane/barkdog/badges/main/pipeline.svg)](https://gitlab.com/lbstephane/barkdog/-/pipelines)
 
-Site : **[barkdog.fr](https://barkdog.fr)** · Développement, tickets et contributions sur **[GitLab](https://gitlab.com/lbstephane/barkdog)** (le dépôt GitHub est un miroir).
+Website: **[barkdog.fr](https://barkdog.fr)** · Development, issues and contributions on **[GitLab](https://gitlab.com/lbstephane/barkdog)** (the GitHub repository is a mirror).
 
-**BarkDog** est un enregistreur autonome pour Raspberry Pi. Il écoute en continu, reconnaît les nuisances choisies grâce à une IA (aboiements, hurlements, coqs, musique, travaux, pétards…) et ne garde que les épisodes. Chaque épisode est **horodaté, catégorisé et scellé par une empreinte SHA-256**. Une page web permet de tout consulter depuis un téléphone.
+**BarkDog** is a standalone recorder for the Raspberry Pi. It listens continuously, recognises the nuisances you pick with an on-device AI (barking, howling, roosters, music, construction work, fireworks…) and keeps only the episodes. Each episode is **timestamped, categorised and sealed with a SHA-256 fingerprint**. A web page lets you browse everything from your phone.
 
-![BarkDog en 36 secondes](docs/barkdog.mp4)
+![BarkDog in 36 seconds](docs/barkdog.mp4)
 
-Version verticale pour les réseaux sociaux : [docs/barkdog-vertical.mp4](docs/barkdog-vertical.mp4).
+Vertical version for social media: [docs/barkdog-vertical.mp4](docs/barkdog-vertical.mp4).
 
-Le but : constituer un dossier factuel (dates, heures, durées, répétition, de nuit ou de jour) sans passer ses nuits le dictaphone à la main.
+The goal: build a factual record (dates, times, durations, repetition, night or day) without spending your nights holding a voice recorder.
 
-> **Ce n'est pas un instrument de mesure.** Les niveaux sont relatifs (micro non calibré). L'outil aide à documenter une nuisance, mais ne remplace ni une mesure acoustique réglementaire, ni un constat de commissaire de justice.
+> **This is not a measuring instrument.** Levels are relative (uncalibrated microphone). The tool helps document a nuisance, but it replaces neither a regulatory acoustic measurement nor an official report by a bailiff or similar authority.
 
-## Fonctionnalités
+## Features
 
-- **Détection locale par IA** : [YAMNet](https://github.com/tensorflow/models/tree/master/research/audioset/yamnet) (Google, 521 classes de sons AudioSet), analyse toutes les 0,5 s. Aucun son ne sort du boîtier.
-- **Nuisances au choix** dans la page, avec un seuil par nuisance si besoin. **Sons à ignorer** : canards, oiseaux, pluie, circulation… **Déclenchement facultatif sur le niveau sonore** seul.
-- **Épisodes complets** : les secondes qui précèdent le déclenchement sont conservées, et l'épisode se clôt après un calme réglable. Un son isolé peut être écarté (nombre minimum de détections), mais il reste tracé.
-- **Chronologie** dans chaque fichier : une frise par catégorie et des boutons « 0:34 hurlement » pour aller directement au bon moment.
-- **Vie privée** : les passages où l'IA entend une voix humaine sont **rendus muets** dans les fichiers (par défaut), et signalés sur la frise.
-- **Traçabilité** : empreinte SHA-256 de chaque WAV ; identifiant des réglages utilisés ; historique des démarrages, arrêts, changements de réglages, suppressions et modes test ; journal des épisodes écartés.
-- **Page web** pour iPhone et Android :
-  - état de l'écoute, bouton marche / arrêt ;
-  - bandeau « enregistrement en cours », liste mise à jour toute seule ;
-  - filtres, statistiques par jour et la nuit, exports CSV ;
-  - annotations (faux positif, notes) et corbeille ;
-  - **mode test** avec les scores de l'IA en direct, sans enregistrer.
-- **Durci** : mot de passe haché, session signée, anti-CSRF, CSP stricte, limitation des tentatives, services systemd cloisonnés (voir [Sécurité](#sécurité)).
+- **Local AI detection**: [YAMNet](https://github.com/tensorflow/models/tree/master/research/audioset/yamnet) (Google, 521 AudioSet sound classes), analysis every 0.5 s. No sound ever leaves the box.
+- **Choose your nuisances** in the web page, with an optional threshold per nuisance. **Sounds to ignore**: ducks, birds, rain, traffic… **Optional trigger on sound level** alone.
+- **Complete episodes**: the seconds before the trigger are kept, and the episode closes after an adjustable quiet time. An isolated sound can be discarded (minimum number of detections), but it is still logged.
+- **Timeline** in every file: one lane per category and “0:34 howling” buttons to jump straight to the right moment.
+- **Privacy**: passages where the AI hears a human voice are **silenced** in the files (on by default) and flagged on the timeline.
+- **Traceability**: SHA-256 fingerprint of every WAV file; identifier of the settings used; history of starts, stops, settings changes, deletions and test modes; log of discarded episodes.
+- **Web page** for iPhone and Android:
+  - listening status, start / stop button;
+  - “recording” banner, list that updates on its own;
+  - filters, statistics per day and at night, CSV exports;
+  - annotations (false positive, notes) and trash;
+  - **test mode** with live AI scores, without recording;
+  - interface in **English or French**, selectable in Settings.
+- **Hardened**: hashed password, signed session, anti-CSRF, strict CSP, rate limiting, sandboxed systemd services (see [Security](#security)).
 
-## Matériel
+## Hardware
 
-| | Recommandé | Remarques |
+| | Recommended | Notes |
 |---|---|---|
-| Carte | **Raspberry Pi Zero 2 W**, 3, 4 ou 5 | **Raspberry Pi OS 64 bits** obligatoire (Lite suffit). |
-| Micro | **Micro USB** (micro-cravate USB, carte son USB et micro) | Évitez les micros de conférence à « réduction de bruit » : ils effacent les aboiements lointains. La prise jack du Pi 3 et du Pi 4 est **une sortie seulement**. |
-| Alimentation | 5 V 2,5 A (Pi 3 / Zero 2 W), 5 V 3 A en USB-C (Pi 4) | Une alimentation de 1 A suffit à empêcher le démarrage. |
-| Stockage | Carte microSD de 16 Go | Environ 1,9 Mo par minute enregistrée. |
+| Board | **Raspberry Pi Zero 2 W**, 3, 4 or 5 | **Raspberry Pi OS 64-bit** required (Lite is enough). |
+| Microphone | **USB microphone** (USB lavalier mic, or USB sound card plus mic) | Avoid conference microphones with “noise reduction”: they erase distant barking. The 3.5 mm jack on the Pi 3 and Pi 4 is **output only**. |
+| Power supply | 5 V 2.5 A (Pi 3 / Zero 2 W), 5 V 3 A USB-C (Pi 4) | A 1 A supply is enough to prevent booting. |
+| Storage | 16 GB microSD card | About 1.9 MB per recorded minute. |
 
-À savoir :
-- **Pi Zero 2 W** : un seul port USB de données (adaptateur OTG nécessaire pour le micro), Wi-Fi 2,4 GHz uniquement. Dans un boîtier étanche, gare à la chaleur au soleil : prévoir ombre, couleur claire, aération à chicane.
-- **Ronflement électrique** (raies à 50 et 150 Hz) : réglez le filtre coupe-bas sur 200 Hz. Les chiens, coqs, voix et moteurs sont tous au-dessus.
-- **Heure** : le Pi n'a pas d'horloge sauvegardée. Il faut du réseau au démarrage (NTP), ou un module RTC DS3231. La page signale une heure non synchronisée.
+Good to know:
+- **Pi Zero 2 W**: a single USB data port (OTG adapter needed for the mic), 2.4 GHz Wi-Fi only. In a weatherproof enclosure, watch out for heat in the sun: plan for shade, a light colour and baffled ventilation.
+- **Electrical hum**: with a switching power supply or a USB ground loop you hear harmonics of the mains frequency (150, 250, 350 Hz… on 50 Hz grids). The 200 Hz high-pass filter removes the lowest ones. If the buzz persists, change the power supply (the official one if possible) or add a USB isolator, a powered hub or a ferrite on the mic cable.
+- **Time**: the Pi has no battery-backed clock. It needs network access at boot (NTP), or a DS3231 RTC module. The page warns when the clock is not synchronised.
 
 ## Installation
 
@@ -52,103 +55,107 @@ cd ~/barkdog
 ./install.sh
 ```
 
-Le script installe les dépendances et le modèle, règle l'heure, demande le mot de passe de la page et crée deux services démarrés au boot :
-- `barkdog` : l'écoute ;
-- `barkdog-web` : la page, sur le port 8080.
+The script installs the dependencies and the model, sets the time zone (`TZ_NAME=Europe/London ./install.sh` to choose yours, Europe/Paris by default), asks for the web page password and creates two services started at boot:
+- `barkdog`: listening;
+- `barkdog-web`: the web page, on port 8080.
 
-**Micro USB à 48 kHz uniquement** (cas courant) : laissez ALSA convertir en 16 kHz. Créez `/etc/asound.conf` avec le nom de carte donné par `arecord -l`, puis choisissez le micro « default » dans les Réglages :
+**USB microphone that only does 48 kHz** (common): let ALSA convert to 16 kHz. Create `/etc/asound.conf` with the card name given by `arecord -l`, then choose the “default” microphone in Settings:
 
 ```
 pcm.!default { type asym capture.pcm "mic" playback.pcm "plughw:0,0" }
 pcm.mic { type plug slave.pcm "hw:CARD=Device,DEV=0" }
 ```
 
-**Mise à jour** : `git pull && ./install.sh`. Les enregistrements, le mot de passe et les réglages sont conservés.
+**Update**: `git pull && ./install.sh`. Recordings, password and settings are kept.
 
-## Utilisation
+## Usage
 
-Ouvrez **http://\<nom-du-pi\>.local:8080** depuis le Wi-Fi de la maison. Sur iPhone, utilisez « Partager → Sur l'écran d'accueil ».
+Open **http://\<pi-name\>.local:8080** from your home Wi-Fi. On iPhone, use “Share → Add to Home Screen”.
 
-1. **Réglages** : cochez les nuisances, ajustez le micro, le gain et le filtre. Les changements s'appliquent en quelques secondes, sans couper l'écoute ; seul un changement de micro la redémarre, pour environ 10 s.
-2. **Mode test** : affiche les scores en direct face aux seuils, le niveau, ce que l'IA « entend » et les détections de voix. Par défaut, rien n'est enregistré pendant le test. La suspension expire seule 5 min après la fermeture de la page, et au bout de 30 min de test au maximum.
-3. **Épisodes** : écoute, frise, annotations, corbeille. Une suppression définitive n'est possible que depuis la corbeille, et la ligne reste dans le journal brut.
+1. **Settings** (gear icon): tick the nuisances, adjust the microphone, gain and filter, pick the language. Changes apply within seconds without stopping listening; only a microphone change restarts it, for about 10 s.
+2. **Test mode**: shows live scores against the thresholds, the level, what the AI “hears” and voice detections. By default nothing is recorded during the test. The pause expires on its own 5 min after the page is closed, and after at most 30 min of testing.
+3. **Episodes**: playback, timeline, annotations, trash. Days fold and unfold; today and yesterday are open by default. Permanent deletion is only possible from the trash, and the line stays in the raw log.
 
-**Accès depuis l'extérieur** : n'ouvrez **pas** de port sur votre box. Utilisez un VPN : [Tailscale](https://tailscale.com) (rien à configurer sur la box) ou WireGuard.
-- Avec Tailscale, `sudo tailscale serve --bg 8080` ajoute le HTTPS. Le cookie de session passe alors en `Secure`.
-- Pensez à désactiver l'expiration de clé du boîtier dans la console Tailscale.
+**Remote access**: do **not** open a port on your router. Use a VPN: [Tailscale](https://tailscale.com) (nothing to configure on the router) or WireGuard.
+- With Tailscale, `sudo tailscale serve --bg 8080` adds HTTPS. The session cookie then becomes `Secure`.
+- Remember to disable key expiry for the box in the Tailscale console.
 
-## Fichiers produits
+## Files produced
+
+Data file names are in French (the project started in France); their format is documented here.
 
 ```
-enregistrements/
+enregistrements/                 # recordings
   2026-10-16/
-    2026-10-16_05h42m10s_aboiement+hurlement.wav   # l'épisode (16 kHz mono)
-    2026-10-16_05h42m10s_aboiement+hurlement.json  # chronologie + passages de parole masqués
-  journal_evenements.csv     # 1 ligne par épisode : horaires, catégories, scores, SHA-256, réglages
-  episodes_ignores.csv       # épisodes écartés (trop courts, parole…) : jamais d'oubli silencieux
-  historique_ecoute.csv      # démarrages, arrêts, réglages, suppressions, mode test, connexions
-  annotations.json           # faux positifs, notes, corbeille (le journal n'est jamais modifié)
-  corbeille/
-config/                      # (0700) réglages, mot de passe haché, clé de session
+    2026-10-16_05h42m10s_aboiement+hurlement.wav   # the episode (16 kHz mono); aboiement = barking, hurlement = howling
+    2026-10-16_05h42m10s_aboiement+hurlement.json  # timeline + masked speech passages
+  journal_evenements.csv     # 1 line per episode: times, categories, scores, SHA-256, settings
+  episodes_ignores.csv       # discarded episodes (too short, speech…): nothing is dropped silently
+  historique_ecoute.csv      # starts, stops, settings, deletions, test mode, sign-ins
+  annotations.json           # false positives, notes, trash (the log is never modified)
+  corbeille/                 # trash
+config/                      # (0700) settings, hashed password, session key
 ```
 
-Outils en ligne de commande :
-- `.venv/bin/python reanalyse.py [--force]` recalcule les chronologies avec les réglages actuels ;
-- `.venv/bin/python rapport.py` produit une synthèse par jour ;
-- `.venv/bin/python auth.py --set` change le mot de passe.
+Command-line tools:
+- `.venv/bin/python reanalyse.py [--force]` rebuilds timelines with the current settings;
+- `.venv/bin/python rapport.py` prints a daily summary;
+- `.venv/bin/python auth.py --set` changes the password.
 
-## Sécurité
+## Security
 
-Modèle de menace : la page est destinée au **réseau local et à un VPN**, jamais à Internet en direct. Elle donne accès à des enregistrements sensibles, et permet de supprimer des fichiers et d'arrêter l'écoute.
+Threat model: the page is meant for the **local network and a VPN**, never for direct Internet exposure. It gives access to sensitive recordings, and lets you delete files and stop listening.
 
-- **Authentification** :
-  - mot de passe haché en PBKDF2-SHA256 (200 000 itérations, sel aléatoire), fichier en 0600 ;
-  - session par jeton signé HMAC-SHA256, valable 30 jours, en cookie `HttpOnly` et `SameSite=Strict` ;
-  - changer le mot de passe ferme toutes les sessions ;
-  - 5 échecs en 15 min bloquent l'adresse.
-- **Anti-CSRF** : chaque requête POST exige un en-tête applicatif et une origine identique ; la connexion elle-même est protégée.
-- **En-têtes** : CSP sans script inline, `frame-ancestors 'none'`, `nosniff`, `no-referrer`. La signature du serveur ne révèle aucune version.
-- **Chemins** : les fichiers sont confinés au dossier des enregistrements, résolus puis contrôlés ; les noms de téléchargement sont nettoyés.
-- **systemd** :
-  - l'écoute tourne sans privilège (`NoNewPrivileges`), sans réseau (`AF_UNIX` seul), avec un système de fichiers en lecture seule sauf pour les données et les réglages ;
-  - la page web est cloisonnée de la même façon, à l'exception de `NoNewPrivileges`, nécessaire au bouton marche / arrêt.
-- **sudo** : une seule règle, limitée à `systemctl start|stop barkdog`.
-- **Traçabilité** : connexions, réglages, suppressions et marche / arrêt sont inscrits dans l'historique ; les refus apparaissent dans `journalctl -u barkdog-web`.
+- **Authentication**:
+  - password hashed with PBKDF2-SHA256 (200,000 iterations, random salt), file in mode 0600;
+  - session as an HMAC-SHA256 signed token, valid 30 days, in an `HttpOnly`, `SameSite=Strict` cookie;
+  - changing the password ends all sessions;
+  - 5 failures in 15 min block the address.
+- **Anti-CSRF**: every POST request requires an application header and a matching origin; the sign-in itself is protected.
+- **Headers**: CSP without inline scripts, `frame-ancestors 'none'`, `nosniff`, `no-referrer`. The server signature reveals no version.
+- **Paths**: files are confined to the recordings folder, resolved then checked; download names are sanitised.
+- **systemd**:
+  - listening runs unprivileged (`NoNewPrivileges`), without network (`AF_UNIX` only), on a read-only file system except for data and settings;
+  - the web page is sandboxed the same way, except for `NoNewPrivileges`, which the start / stop button needs.
+- **sudo**: a single rule, limited to `systemctl start|stop barkdog`.
+- **Traceability**: sign-ins, settings, deletions and start / stop are written to the history; refusals appear in `journalctl -u barkdog-web`.
 
-Une vulnérabilité ? Merci de la signaler en privé avant toute publication.
+Found a vulnerability? Please report it privately before any publication, with a [confidential issue on GitLab](https://gitlab.com/lbstephane/barkdog/-/issues/new) (tick “This issue is confidential”).
 
-## Vie privée et cadre légal
+## Privacy and legal framework
 
-- Enregistrer **les paroles d'autrui** prononcées à titre privé sans leur consentement est puni par la loi en France (article 226-1 du Code pénal). Le masquage de la parole est activé par défaut. Le désactiver est de votre responsabilité.
-- Orientez le micro vers la source de la nuisance, pas vers les habitations ou les lieux de passage.
-- En France, les bruits de comportement (animaux, cris, musique…) s'apprécient selon leur **durée, leur répétition ou leur intensité**. Les bruits d'activités relèvent d'une mesure d'émergence au sonomètre. Le journal aide à objectiver la répétition et les horaires. Pour une procédure, rapprochez-vous de l'ADIL, d'un conciliateur, d'un avocat ou d'un commissaire de justice.
+- In many countries, recording **other people's private conversations** without their consent is a criminal offence (in France, article 226-1 of the Penal Code). Speech masking is on by default. Turning it off is your responsibility.
+- Point the microphone at the source of the nuisance, not at homes or public walkways.
+- Noise rules vary by country. In France, behavioural noise (animals, shouting, music…) is assessed on its **duration, repetition or intensity**, while activity noise requires a sound-level meter measurement. The log helps make repetition and timing objective. For any proceedings, seek advice from a mediator, a lawyer or the competent local authority.
 
-## Développement
+## Development
 
 ```bash
-python3 -m unittest discover -s tests          # 33 tests, sans matériel ni modèle (micro et IA simulés)
+python3 -m unittest discover -s tests          # 34 tests, no hardware or model needed (simulated mic and AI)
 python3 tests/demo.py --out /tmp/demo/enregistrements --config /tmp/demo/config/config.json --speed 4
 python3 auth.py --config-dir /tmp/demo/config --set
 python3 web.py --out /tmp/demo/enregistrements --config-dir /tmp/demo/config --no-service-control
 ```
 
-La démo lance le vrai enregistreur avec un faux micro et un faux modèle. Son scénario en boucle comprend des hurlements puis des aboiements, une voix, des canards et un aboiement isolé.
+The demo runs the real recorder with a fake microphone and a fake model. Its looping scenario includes howling then barking, a voice, ducks and an isolated bark.
 
-Organisation du code :
+Code layout:
 
-| Fichier | Rôle |
+| File | Role |
 |---|---|
-| `catalog.py` | Nuisances, exclusions et classes de parole (correspondance vers YAMNet). |
-| `config.py` | Réglages (`config/config.json`) : validation, empreinte, différences, migration. |
-| `bark_logger.py` | Enregistreur : détection, épisodes, masquage de la parole, journal. |
-| `web.py`, `auth.py`, `static/` | Page web, en bibliothèque standard Python uniquement. |
+| `catalog.py` | Nuisances, exclusions and speech classes (mapping to YAMNet), labels in French and English. |
+| `config.py` | Settings (`config/config.json`): validation, fingerprint, differences. |
+| `bark_logger.py` | Recorder: detection, episodes, speech masking, log. |
+| `web.py`, `auth.py`, `static/` | Web page, Python standard library only. Translations in `static/i18n.js`. |
 
-## Soutenir
+Translations: the interface is in French by default and switches to English based on the browser language or the choice in Settings. To add or fix a translation, edit the dictionary in `static/i18n.js` (keys are the French texts).
 
-BarkDog est gratuit. S'il vous rend service, vous pouvez [offrir un café sur Ko-fi](https://ko-fi.com/revolution3d). Signalements et contributions : [tickets](https://gitlab.com/lbstephane/barkdog/-/issues) et merge requests.
+## Support
+
+BarkDog is free. If it helps you, you can [buy me a coffee on Ko-fi](https://ko-fi.com/revolution3d). Bug reports and contributions: [issues](https://gitlab.com/lbstephane/barkdog/-/issues) and merge requests on GitLab.
 
 ## Licence
 
-[MIT](LICENSE), sans garantie d'aucune sorte. Vous restez seul responsable de l'usage des enregistrements, notamment au regard de la vie privée des tiers.
+[MIT](LICENSE), without warranty of any kind. You alone are responsible for how the recordings are used, in particular with regard to other people's privacy.
 
-Le modèle YAMNet et la liste de classes (`tests/data/yamnet_class_map.csv`) sont publiés par Google sous licence Apache 2.0. Le modèle est téléchargé à l'installation, il n'est pas redistribué dans ce dépôt.
+The YAMNet model and class map (`tests/data/yamnet_class_map.csv`) are published by Google under the Apache 2.0 licence. The model is downloaded at installation and is not redistributed in this repository.
