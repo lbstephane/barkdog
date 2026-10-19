@@ -12,7 +12,7 @@ form.addEventListener('submit', async ev => {
   go.disabled = true; msg.textContent = '';
   try {
     const r = await fetch('/api/login', {
-      method: 'POST', headers: {'Content-Type': 'application/json', 'X-Requested-With': 'aboiements'},
+      method: 'POST', headers: {'Content-Type': 'application/json', 'X-Requested-With': 'barkdog'},
       body: JSON.stringify({mot_de_passe: document.getElementById('pw').value}),
     });
     if (r.ok) { location.replace('/'); return; }

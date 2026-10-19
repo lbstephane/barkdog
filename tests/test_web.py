@@ -13,7 +13,7 @@ import config as cfgmod
 import web
 
 PW = "un-mot-de-passe-solide"
-HDR = {"X-Requested-With": "aboiements", "Content-Type": "application/json"}
+HDR = {"X-Requested-With": "barkdog", "Content-Type": "application/json"}
 
 
 class WebTest(unittest.TestCase):
@@ -41,7 +41,7 @@ class WebTest(unittest.TestCase):
         a.set_password(PW)
         srv = web.Server(("127.0.0.1", 0), web.Handler)
         srv.out_dir, srv.config_path, srv.auth = cls.out.resolve(), cls.conf / "config.json", a
-        srv.service_name, srv.can_control, srv.secure_cookies = "aboiements", False, False
+        srv.service_name, srv.can_control, srv.secure_cookies = "barkdog", False, False
         srv.live_file = str(root / "live.json")
         srv.test_file = str(root / "test.json")
         srv.devices_file = str(root / "devices.json")
@@ -97,7 +97,7 @@ class WebTest(unittest.TestCase):
         self.assertNotIn("unsafe-inline' 'self'; script", csp)
         self.assertEqual(r.getheader("X-Frame-Options"), "DENY")
         self.assertEqual(r.getheader("X-Content-Type-Options"), "nosniff")
-        self.assertEqual(r.getheader("Server"), "Aboiements")
+        self.assertEqual(r.getheader("Server"), "BarkDog")
 
     def test_bad_password_and_rate_limit(self):
         ip_hdr = HDR | {"X-Forwarded-For": "203.0.113.9"}     # client distant derrière le proxy local

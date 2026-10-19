@@ -12,14 +12,16 @@ sudo apt-get update
 sudo apt-get install -y python3-venv python3-pip libportaudio2 alsa-utils
 
 echo "== Environnement Python"
+# Un .venv copié ou déplacé garde ses anciens chemins : on le recrée s'il ne fonctionne plus
+if [ -d .venv ] && ! .venv/bin/python -c "import sys" 2>/dev/null; then rm -rf .venv; fi
 [ -d .venv ] || python3 -m venv .venv
-.venv/bin/pip install --upgrade pip
-.venv/bin/pip install numpy sounddevice scipy
+.venv/bin/python -m pip install --upgrade pip
+.venv/bin/python -m pip install numpy sounddevice scipy
 # Moteur d'inférence : ai-edge-litert (successeur de tflite-runtime, dispo pour Python 3.13) ;
 # tflite-runtime seulement en secours, pour les anciens systèmes.
 if ! .venv/bin/python -c "import ai_edge_litert.interpreter" 2>/dev/null \
    && ! .venv/bin/python -c "import tflite_runtime.interpreter" 2>/dev/null; then
-  .venv/bin/pip install ai-edge-litert 2>/dev/null || .venv/bin/pip install tflite-runtime
+  .venv/bin/python -m pip install ai-edge-litert 2>/dev/null || .venv/bin/python -m pip install tflite-runtime
 fi
 
 echo "== Modèle YAMNet"
@@ -35,26 +37,21 @@ sudo timedatectl set-ntp true
 echo "== Réglages"
 mkdir -p enregistrements config
 chmod 700 config
-# Migration : reprend les options de l'ancien aboiements.conf (LOGGER_ARGS) dans config/config.json
-.venv/bin/python config.py --out config/config.json --migrate-from aboiements.conf
-[ -f aboiements.conf ] && mv aboiements.conf aboiements.conf.ancien
+.venv/bin/python config.py --out config/config.json
 
 echo "== Mot de passe de la page web"
 if ! .venv/bin/python auth.py --status >/dev/null 2>&1; then
-  if [ -f web_password.txt ] && .venv/bin/python auth.py --from-file web_password.txt; then
-    :
-  elif [ -t 0 ]; then
+  if [ -t 0 ]; then
     .venv/bin/python auth.py --set
   else
     echo "!! Aucun mot de passe : lancer « .venv/bin/python auth.py --set » avant d'ouvrir la page."
   fi
 fi
-[ -f web_password.txt ] && { echo "Suppression de l'ancien mot de passe en clair"; rm -f web_password.txt; }
 
 echo "== Services (cloisonnés par systemd)"
-sudo tee /etc/systemd/system/aboiements.service >/dev/null <<EOF
+sudo tee /etc/systemd/system/barkdog.service >/dev/null <<EOF
 [Unit]
-Description=Enregistreur de nuisances sonores horodate
+Description=BarkDog - enregistreur de nuisances sonores
 After=network-online.target time-sync.target sound.target
 Wants=network-online.target
 
@@ -83,9 +80,9 @@ RestrictAddressFamilies=AF_UNIX
 WantedBy=multi-user.target
 EOF
 
-sudo tee /etc/systemd/system/aboiements-web.service >/dev/null <<EOF
+sudo tee /etc/systemd/system/barkdog-web.service >/dev/null <<EOF
 [Unit]
-Description=Interface web du journal des nuisances
+Description=BarkDog - page web
 After=network-online.target
 Wants=network-online.target
 
@@ -95,7 +92,7 @@ WorkingDirectory=$DIR
 ExecStart=/usr/bin/python3 $DIR/web.py --out $DIR/enregistrements --config-dir $DIR/config --port ${WEB_PORT:-8080}
 Restart=always
 RestartSec=5
-# Cloisonnement (sans NoNewPrivileges : le bouton marche/arrêt passe par sudo, voir /etc/sudoers.d/aboiements)
+# Cloisonnement (sans NoNewPrivileges : le bouton marche/arrêt passe par sudo, voir /etc/sudoers.d/barkdog)
 ProtectSystem=full
 ProtectHome=read-only
 ReadWritePaths=$DIR/enregistrements $DIR/config
@@ -114,22 +111,22 @@ EOF
 SC=$(command -v systemctl)
 TMP=$(mktemp)
 cat > "$TMP" <<EOF
-# Pilotage de l'écoute depuis la page web (installé par aboiements/install.sh)
-$SVC_USER ALL=(root) NOPASSWD: $SC start aboiements, $SC stop aboiements
+# Pilotage de l'écoute depuis la page web (installé par BarkDog, install.sh)
+$SVC_USER ALL=(root) NOPASSWD: $SC start barkdog, $SC stop barkdog
 EOF
 if sudo visudo -cf "$TMP" >/dev/null; then
-  sudo install -m 440 -o root -g root "$TMP" /etc/sudoers.d/aboiements
+  sudo install -m 440 -o root -g root "$TMP" /etc/sudoers.d/barkdog
 else
   echo "Règle sudo invalide : bouton marche/arrêt désactivé"
 fi
 rm -f "$TMP"
 
 sudo systemctl daemon-reload
-sudo systemctl enable aboiements.service aboiements-web.service
-sudo systemctl restart aboiements.service aboiements-web.service
+sudo systemctl enable barkdog.service barkdog-web.service
+sudo systemctl restart barkdog.service barkdog-web.service
 sleep 3
-systemctl is-active --quiet aboiements || echo "!! L'écoute n'a pas démarré : journalctl -u aboiements -n 30"
+systemctl is-active --quiet barkdog || echo "!! L'écoute n'a pas démarré : journalctl -u barkdog -n 30"
 echo
 echo "OK. Page web : http://$(hostname).local:${WEB_PORT:-8080}  (ou http://$(hostname -I | awk '{print $1}'):${WEB_PORT:-8080})"
 echo "Réglages : depuis la page (section Réglages) ou $DIR/config/config.json"
-echo "Suivi en direct : journalctl -u aboiements -f"
+echo "Suivi en direct : journalctl -u barkdog -f"

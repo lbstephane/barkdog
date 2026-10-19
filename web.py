@@ -39,8 +39,7 @@ SYSTEMCTL = shutil.which("systemctl") or "/usr/bin/systemctl"
 TEST_LEASE_S = 300      # la page doit renouveler le mode test, sinon il expire seul (5 min)
 TEST_MAX_S = 30 * 60    # durée maximale d'un mode test
 COOKIE = "session"
-APP_HEADER = ("X-Requested-With", "aboiements")
-LEGACY_SCORES = ("aboiement", "hurlement", "grognement")
+APP_HEADER = ("X-Requested-With", "barkdog")
 
 STATIC_FILES = {
     "/": ("index.html", "text/html; charset=utf-8"),
@@ -120,21 +119,14 @@ def read_test(path):
 
 
 def parse_scores(r):
-    """Scores max par catégorie : colonne scores_max (v2) ou anciennes colonnes score_max_* (v1)."""
+    """Scores max par catégorie, colonne scores_max (« aboiement:0.71|hurlement:0.2 »)."""
     out = {}
-    if r.get("scores_max"):
-        for part in r["scores_max"].split("|"):
-            k, _, v = part.partition(":")
-            try:
-                out[k] = float(v)
-            except ValueError:
-                pass
-    else:
-        for c in LEGACY_SCORES:
-            try:
-                out[c] = float(r.get(f"score_max_{c}") or 0)
-            except ValueError:
-                pass
+    for part in (r.get("scores_max") or "").split("|"):
+        k, _, v = part.partition(":")
+        try:
+            out[k] = float(v)
+        except ValueError:
+            pass
     return out
 
 
@@ -183,13 +175,13 @@ def read_events(out_dir, thr):
 
 # --------------------------------------------------------------------------- serveur
 class Handler(BaseHTTPRequestHandler):
-    server_version = "Aboiements"
+    server_version = "BarkDog"
     sys_version = ""
     protocol_version = "HTTP/1.1"   # connexions persistantes, mieux pour la lecture audio sur iPhone
     timeout = 60                    # pas de connexion pendante indéfiniment
 
     def version_string(self):
-        return "Aboiements"         # ni version de Python ni du serveur
+        return "BarkDog"         # ni version de Python ni du serveur
 
     @property
     def S(self):
@@ -655,10 +647,10 @@ def main():
     p.add_argument("--config-dir", default=str(HERE / "config"))
     p.add_argument("--host", default="0.0.0.0", help="adresse d'écoute (127.0.0.1 si accès uniquement via tailscale serve)")
     p.add_argument("--port", type=int, default=8080)
-    p.add_argument("--service", default="aboiements", help="nom du service systemd de l'enregistreur")
-    p.add_argument("--live-file", default="/dev/shm/aboiements-live.json")
-    p.add_argument("--test-file", default="/dev/shm/aboiements-test.json")
-    p.add_argument("--devices-file", default="/dev/shm/aboiements-devices.json")
+    p.add_argument("--service", default="barkdog", help="nom du service systemd de l'enregistreur")
+    p.add_argument("--live-file", default="/dev/shm/barkdog-live.json")
+    p.add_argument("--test-file", default="/dev/shm/barkdog-test.json")
+    p.add_argument("--devices-file", default="/dev/shm/barkdog-devices.json")
     p.add_argument("--secure-cookies", action="store_true", help="cookie « Secure » (page servie en HTTPS)")
     p.add_argument("--no-service-control", action="store_true")
     a = p.parse_args()

@@ -47,14 +47,14 @@ Le but : constituer un dossier factuel (dates, heures, durées, répétition, de
 ## Installation
 
 ```bash
-git clone https://gitlab.com/lbstephane/barkdog.git ~/aboiements   # garder ce nom de dossier (services et chemins)
-cd ~/aboiements
+git clone https://gitlab.com/lbstephane/barkdog.git ~/barkdog
+cd ~/barkdog
 ./install.sh
 ```
 
 Le script installe les dépendances et le modèle, règle l'heure, demande le mot de passe de la page et crée deux services démarrés au boot :
-- `aboiements` : l'écoute ;
-- `aboiements-web` : la page, sur le port 8080.
+- `barkdog` : l'écoute ;
+- `barkdog-web` : la page, sur le port 8080.
 
 **Micro USB à 48 kHz uniquement** (cas courant) : laissez ALSA convertir en 16 kHz. Créez `/etc/asound.conf` avec le nom de carte donné par `arecord -l`, puis choisissez le micro « default » dans les Réglages :
 
@@ -63,10 +63,7 @@ pcm.!default { type asym capture.pcm "mic" playback.pcm "plughw:0,0" }
 pcm.mic { type plug slave.pcm "hw:CARD=Device,DEV=0" }
 ```
 
-**Mise à jour** : `git pull && ./install.sh`. Les enregistrements, le mot de passe et les réglages sont conservés. Les installations antérieures sont migrées automatiquement :
-- l'ancien `aboiements.conf` passe dans `config/config.json` ;
-- le mot de passe en clair est haché, puis le fichier est supprimé ;
-- le journal passe au format v2, avec une copie de sauvegarde `journal_evenements.v1.csv`.
+**Mise à jour** : `git pull && ./install.sh`. Les enregistrements, le mot de passe et les réglages sont conservés.
 
 ## Utilisation
 
@@ -115,8 +112,8 @@ Modèle de menace : la page est destinée au **réseau local et à un VPN**, jam
 - **systemd** :
   - l'écoute tourne sans privilège (`NoNewPrivileges`), sans réseau (`AF_UNIX` seul), avec un système de fichiers en lecture seule sauf pour les données et les réglages ;
   - la page web est cloisonnée de la même façon, à l'exception de `NoNewPrivileges`, nécessaire au bouton marche / arrêt.
-- **sudo** : une seule règle, limitée à `systemctl start|stop aboiements`.
-- **Traçabilité** : connexions, réglages, suppressions et marche / arrêt sont inscrits dans l'historique ; les refus apparaissent dans `journalctl -u aboiements-web`.
+- **sudo** : une seule règle, limitée à `systemctl start|stop barkdog`.
+- **Traçabilité** : connexions, réglages, suppressions et marche / arrêt sont inscrits dans l'historique ; les refus apparaissent dans `journalctl -u barkdog-web`.
 
 Une vulnérabilité ? Merci de la signaler en privé avant toute publication.
 
@@ -129,7 +126,7 @@ Une vulnérabilité ? Merci de la signaler en privé avant toute publication.
 ## Développement
 
 ```bash
-python3 -m unittest discover -s tests          # 34 tests, sans matériel ni modèle (micro et IA simulés)
+python3 -m unittest discover -s tests          # 33 tests, sans matériel ni modèle (micro et IA simulés)
 python3 tests/demo.py --out /tmp/demo/enregistrements --config /tmp/demo/config/config.json --speed 4
 python3 auth.py --config-dir /tmp/demo/config --set
 python3 web.py --out /tmp/demo/enregistrements --config-dir /tmp/demo/config --no-service-control

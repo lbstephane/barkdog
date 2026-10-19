@@ -40,13 +40,6 @@ class ConfigTest(unittest.TestCase):
             with self.assertRaises(cfgmod.ConfigError, msg=bad):
                 cfgmod.validate(bad)
 
-    def test_legacy_migration(self):
-        c = cfgmod.from_legacy_args('--device default --gain 4 --highpass 200 --min-detections 3 --ignore "Duck;Quack"')
-        self.assertEqual(c["audio"]["micro"], "default")
-        self.assertEqual(c["audio"]["gain"], 4)
-        self.assertEqual(c["audio"]["coupe_bas_hz"], 200)
-        self.assertEqual(c["episodes"]["min_detections"], 3)
-        self.assertEqual(c["exclusions"], ["canards"])
 
     def test_id_and_diff(self):
         a, c = cfgmod.validate({}), cfgmod.validate({"seuil": 0.4})
@@ -116,27 +109,12 @@ class MaskTest(unittest.TestCase):
         self.assertEqual((secs, segs), (0.0, []))
 
 
-class JournalUpgradeTest(unittest.TestCase):
-    def test_v1_to_v2_with_backup(self):
+class JournalTest(unittest.TestCase):
+    def test_new_journal_has_header(self):
         with tempfile.TemporaryDirectory() as d:
-            v1 = ["debut", "fin", "duree_s", "categorie", "nb_detections", "score_max_aboiement",
-                  "score_max_hurlement", "score_max_grognement", "niveau_crete_dBFS", "niveau_moyen_dBFS",
-                  "horloge_synchronisee", "fichier", "sha256"]
-            p = Path(d) / "journal_evenements.csv"
-            with open(p, "w", newline="", encoding="utf-8") as f:
-                w = csv.DictWriter(f, v1, delimiter=";")
-                w.writeheader()
-                w.writerow({k: "" for k in v1} | {"debut": "2026-10-16T05:00:00+02:00", "categorie": "aboiement",
-                                                   "score_max_aboiement": "0.71", "score_max_hurlement": "0.2",
-                                                   "score_max_grognement": "0.01", "fichier": "a.wav", "sha256": "ab"})
             b.Saver(d)
-            rows = list(csv.DictReader(open(p, encoding="utf-8"), delimiter=";"))
-            self.assertEqual(list(rows[0].keys()), b.CSV_FIELDS)
-            self.assertEqual(rows[0]["scores_max"], "aboiement:0.71|hurlement:0.2|grognement:0.01")
-            self.assertEqual(rows[0]["sha256"], "ab")
-            self.assertTrue((Path(d) / "journal_evenements.v1.csv").exists())
-            b.Saver(d)   # idempotent
-            self.assertEqual(len(list(csv.DictReader(open(p, encoding="utf-8"), delimiter=";"))), 1)
+            with open(Path(d) / "journal_evenements.csv", encoding="utf-8") as f:
+                self.assertEqual(next(csv.reader(f, delimiter=";")), b.CSV_FIELDS)
 
 
 class ListenerTest(unittest.TestCase):

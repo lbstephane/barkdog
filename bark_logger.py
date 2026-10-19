@@ -19,7 +19,6 @@ import json
 import logging
 import os
 import queue
-import shutil
 import signal
 import subprocess
 import tempfile
@@ -52,10 +51,9 @@ CSV_FIELDS = [
     "niveau_crete_dBFS", "niveau_moyen_dBFS", "horloge_synchronisee",
     "parole_masquee_s", "reglages", "fichier", "sha256",
 ]
-LEGACY_SCORES = ("aboiement", "hurlement", "grognement")   # colonnes score_max_* du journal v1
 EXIT_RESTART = 3    # code de sortie : systemd relance l'écoute (changement de micro)
 
-log = logging.getLogger("aboiements")
+log = logging.getLogger("barkdog")
 
 
 # --------------------------------------------------------------------------- utilitaires
@@ -321,37 +319,9 @@ class Saver:
         self.out_dir.mkdir(parents=True, exist_ok=True)
         self.csv_path = self.out_dir / "journal_evenements.csv"
         self.lock = threading.Lock()
-        self.upgrade_journal()
-
-    def upgrade_journal(self):
-        """Journal v1 (colonnes score_max_* fixes) -> v2 (scores_max générique). Copie de sauvegarde gardée."""
         if not self.csv_path.exists():
             with open(self.csv_path, "w", newline="", encoding="utf-8") as f:
                 csv.DictWriter(f, CSV_FIELDS, delimiter=";").writeheader()
-            return
-        with open(self.csv_path, newline="", encoding="utf-8") as f:
-            reader = csv.DictReader(f, delimiter=";")
-            if reader.fieldnames == CSV_FIELDS:
-                return
-            rows = list(reader)
-        backup = self.csv_path.with_name("journal_evenements.v1.csv")
-        if not backup.exists():
-            shutil.copy2(self.csv_path, backup)
-        out = []
-        for r in rows:
-            n = {k: r.get(k, "") for k in CSV_FIELDS}
-            if not r.get("scores_max"):
-                n["scores_max"] = "|".join(f"{c}:{r[f'score_max_{c}']}" for c in LEGACY_SCORES
-                                           if r.get(f"score_max_{c}") not in (None, ""))
-            out.append(n)
-        fd, tmp = tempfile.mkstemp(dir=self.out_dir, prefix=".journal", suffix=".csv")
-        with os.fdopen(fd, "w", newline="", encoding="utf-8") as f:
-            w = csv.DictWriter(f, CSV_FIELDS, delimiter=";")
-            w.writeheader()
-            w.writerows(out)
-        os.chmod(tmp, 0o644)
-        os.replace(tmp, self.csv_path)
-        log.info("Journal converti au format v2 (%d lignes, original : %s)", len(out), backup.name)
 
     def save(self, ev: Event):
         # thread non « daemon » : Python attend la fin de l'écriture avant de quitter
@@ -560,13 +530,13 @@ def main():
     p.add_argument("--model", default=str(HERE / "yamnet.tflite"))
     p.add_argument("--labels", default=str(HERE / "yamnet_class_map.csv"))
     p.add_argument("--threads", type=int, default=2)
-    p.add_argument("--live-file", default="/dev/shm/aboiements-live.json",
+    p.add_argument("--live-file", default="/dev/shm/barkdog-live.json",
                    help="scores en direct pour le mode test de la page web ('' pour désactiver)")
-    p.add_argument("--test-file", default="/dev/shm/aboiements-test.json")
-    p.add_argument("--devices-file", default="/dev/shm/aboiements-devices.json")
+    p.add_argument("--test-file", default="/dev/shm/barkdog-test.json")
+    p.add_argument("--devices-file", default="/dev/shm/barkdog-devices.json")
     p.add_argument("--list-devices", action="store_true")
     p.add_argument("--verbose", action="store_true", help="affiche les scores en continu (réglage)")
-    a, legacy = p.parse_known_args()     # anciennes options (--device, --gain…) : migration seulement
+    a = p.parse_args()
 
     logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(message)s")
     if a.list_devices:
@@ -575,11 +545,9 @@ def main():
 
     cfg_path = Path(a.config)
     if not cfg_path.exists():
-        cfg = cfgmod.save(cfg_path, cfgmod.from_legacy_args(" ".join(legacy)))
-        log.info("config.json créé%s", f" à partir de : {' '.join(legacy)}" if legacy else " (valeurs par défaut)")
+        cfg = cfgmod.save(cfg_path, cfgmod.validate({}))
+        log.info("config.json créé (valeurs par défaut)")
     else:
-        if legacy:
-            log.warning("Options ignorées (les réglages sont dans %s) : %s", cfg_path, " ".join(legacy))
         try:
             cfg = cfgmod.load(cfg_path)
         except cfgmod.ConfigError as e:

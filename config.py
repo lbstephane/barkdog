@@ -11,7 +11,6 @@ import copy
 import hashlib
 import json
 import os
-import shlex
 import tempfile
 from pathlib import Path
 
@@ -156,51 +155,13 @@ def diff(old, new, prefix=""):
     return out
 
 
-def from_legacy_args(arg_string):
-    """Reprend les options de l'ancien aboiements.conf (LOGGER_ARGS) dans une config v2."""
-    p = argparse.ArgumentParser(add_help=False)
-    for name, typ in (("--device", str), ("--threshold", float), ("--gain", float), ("--highpass", float),
-                      ("--min-detections", int), ("--ignore", str), ("--preroll", float),
-                      ("--hangover", float), ("--max-len", float)):
-        p.add_argument(name, type=typ, default=None)
-    a, _ = p.parse_known_args(shlex.split(arg_string or ""))
-    cfg = copy.deepcopy(DEFAULT)
-    if a.device is not None:
-        cfg["audio"]["micro"] = a.device
-    if a.threshold is not None:
-        cfg["seuil"] = a.threshold
-    if a.gain is not None:
-        cfg["audio"]["gain"] = a.gain
-    if a.highpass is not None:
-        cfg["audio"]["coupe_bas_hz"] = int(a.highpass)
-    if a.min_detections is not None:
-        cfg["episodes"]["min_detections"] = a.min_detections
-    if a.preroll is not None:
-        cfg["episodes"]["pre_s"] = a.preroll
-    if a.hangover is not None:
-        cfg["episodes"]["calme_s"] = a.hangover
-    if a.max_len is not None:
-        cfg["episodes"]["max_s"] = a.max_len
-    if a.ignore is not None:
-        classes = {c.strip() for c in a.ignore.split(";") if c.strip()}
-        cfg["exclusions"] = [e["id"] for e in catalog.EXCLUSIONS if classes & set(e["classes"])]
-    return validate(cfg)
-
-
-if __name__ == "__main__":   # migration lancée par install.sh
+if __name__ == "__main__":   # lancé par install.sh : crée les réglages par défaut s'ils n'existent pas
     import sys
-    ap = argparse.ArgumentParser(description="Crée config.json à partir de l'ancien aboiements.conf")
-    ap.add_argument("--migrate-from", help="fichier aboiements.conf (LOGGER_ARGS=...)")
+    ap = argparse.ArgumentParser(description="Crée config.json avec les réglages par défaut")
     ap.add_argument("--out", required=True)
     args = ap.parse_args()
     if Path(args.out).exists():
         print(f"{args.out} existe déjà, rien à faire")
         sys.exit(0)
-    legacy = ""
-    if args.migrate_from and Path(args.migrate_from).exists():
-        for line in Path(args.migrate_from).read_text(encoding="utf-8").splitlines():
-            line = line.strip()
-            if line.startswith("LOGGER_ARGS="):
-                legacy = " ".join(shlex.split(line.split("=", 1)[1]))
-    cfg = save(args.out, from_legacy_args(legacy))
-    print(f"Réglages créés dans {args.out} (repris de : {legacy or 'valeurs par défaut'})")
+    save(args.out, validate({}))
+    print(f"Réglages par défaut créés dans {args.out}")

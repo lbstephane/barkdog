@@ -19,7 +19,7 @@ let JVER = null, REC = false, pendingRefresh = false, NEW_FILES = new Set(), sta
 /* ---------- appels au boîtier (anti-CSRF : en-tête applicatif sur chaque POST) ---------- */
 async function api(url, body) {
   const opts = body === undefined ? {} : {
-    method: 'POST', headers: {'Content-Type': 'application/json', 'X-Requested-With': 'aboiements'},
+    method: 'POST', headers: {'Content-Type': 'application/json', 'X-Requested-With': 'barkdog'},
     body: JSON.stringify(body),
   };
   const r = await fetch(url, opts);
@@ -546,7 +546,7 @@ $('#livebtn').onclick = () => setLive(!LIVE);
 $('#nosave').onchange = () => { if (LIVE) setTestMode($('#nosave').checked); };
 window.addEventListener('pagehide', () => {   // fermeture : on rend la main tout de suite (sinon le bail expire seul)
   if (testTimer) fetch('/api/testmode', {method: 'POST', keepalive: true, body: JSON.stringify({on: false}),
-    headers: {'Content-Type': 'application/json', 'X-Requested-With': 'aboiements'}});
+    headers: {'Content-Type': 'application/json', 'X-Requested-With': 'barkdog'}});
 });
 document.addEventListener('visibilitychange', () => { if (document.hidden && LIVE) clearTimeout(liveTimer); else if (LIVE) livePoll(); });
 
