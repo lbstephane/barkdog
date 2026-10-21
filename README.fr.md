@@ -8,9 +8,9 @@ Site : **[barkdog.fr](https://barkdog.fr)** · Développement, tickets et contri
 
 **BarkDog** est un enregistreur autonome pour Raspberry Pi. Il écoute en continu, reconnaît les nuisances choisies grâce à une IA (aboiements, hurlements, coqs, musique, travaux, pétards…) et ne garde que les épisodes. Chaque épisode est **horodaté, catégorisé et scellé par une empreinte SHA-256**. Une page web permet de tout consulter depuis un téléphone.
 
-![BarkDog en 36 secondes](docs/barkdog.mp4)
+[![BarkDog en 36 secondes : voir la vidéo](docs/barkdog-play.jpg)](https://barkdog.fr/)
 
-Version verticale pour les réseaux sociaux : [docs/barkdog-vertical.mp4](docs/barkdog-vertical.mp4).
+La vidéo de 36 secondes se regarde sur [barkdog.fr](https://barkdog.fr/), ou se télécharge : [16:9](docs/barkdog.mp4) · [verticale, pour les réseaux sociaux](docs/barkdog-vertical.mp4).
 
 Le but : constituer un dossier factuel (dates, heures, durées, répétition, de nuit ou de jour) sans passer ses nuits le dictaphone à la main.
 

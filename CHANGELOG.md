@@ -17,6 +17,7 @@ Shaped by the feedback on the 1.0 launch. Next steps are in [ROADMAP.md](ROADMAP
 - **Integrity check** from the page (“Check integrity”) or with `integrite.py`: the chain plus the fingerprint of every WAV file, written to the history.
 - Upgrading from 1.0 never rewrites the old log: it is archived unchanged as `journal_evenements_v1.csv`, and the new chain starts from its fingerprint.
 - Levels: new `niveau_detections_dBFS` column (average level during detections only); `niveau_moyen_dBFS` now excludes masked speech; levels are measured on the audio actually written.
+- Speech masking: the 10 ms fade is now computed exactly, so audio outside masked passages stays bit-identical on every CPU.
 
 ### Web page
 - Level shown on each episode card; levels added to the CSV export.
@@ -69,6 +70,7 @@ Construite à partir des retours sur la sortie de la 1.0. La suite est dans [ROA
 
 - **Détection** : nouvelles nuisances **avions et hélicoptères** et **trafic routier** ; **nuisances personnalisées** à partir de n'importe lesquels des 521 sons de YAMNet (10 au maximum, 10 sons chacune), avec seuil facultatif ; un son cherché n'est jamais aussi un son à ignorer, et les choix contradictoires sont refusés avec un message clair.
 - **Traçabilité** : **journal chaîné** (chaque ligne porte un SHA-256 lié à la précédente) ; **vérification d'intégrité** depuis la page ou avec `integrite.py` (chaîne et empreinte de chaque fichier, notée dans l'historique) ; à la mise à jour, le journal 1.0 est archivé tel quel (`journal_evenements_v1.csv`) et la nouvelle chaîne part de son empreinte ; nouvelle colonne `niveau_detections_dBFS`, et `niveau_moyen_dBFS` exclut désormais la parole masquée.
+- **Masquage de la parole** : le fondu de 10 ms est calculé exactement ; hors passages masqués, le son reste identique au bit près sur tout processeur.
 - **Page web** : niveau affiché sur chaque épisode et dans l'export CSV ; **fiabilité de la détection par catégorie**, calculée à partir des faux positifs marqués ; lien vers le journal 1.0 archivé.
 - **Projet** : dépendances déclarées dans `requirements.txt` et `requirements-engine.txt` ; analyses Semgrep et recherche de secrets dans la CI GitLab ; site et vidéos en anglais ; FAQ dans le README et sur le site.
 
