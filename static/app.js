@@ -19,12 +19,16 @@ let JVER = null, REC = false, pendingRefresh = false, NEW_FILES = new Set(), sta
 
 /* ---------- appels au boîtier (anti-CSRF : en-tête applicatif sur chaque POST) ---------- */
 async function api(url, body) {
+  // Uniquement des chemins locaux du boîtier : jamais d'URL absolue ni d'autre origine.
+  if (!/^\/api\/[a-z]+$/.test(url)) throw new Error('chemin non autorisé : ' + url);
   const opts = body === undefined ? {} : {
     method: 'POST', headers: {'Content-Type': 'application/json', 'X-Requested-With': 'barkdog', 'X-Lang': window.I18N.lang},
     body: JSON.stringify(body),
   };
   if (body === undefined) opts.headers = {'X-Lang': window.I18N.lang};
-  const r = await fetch(url, opts);
+  // Code exécuté dans le navigateur (pas Node.js), même origine, chemin validé ci-dessus :
+  // la règle SSRF côté serveur ne s'applique pas.
+  const r = await fetch(url, opts); // nosemgrep: nodejs_scan.javascript-ssrf-rule-node_ssrf
   if (r.status === 401) { location.href = '/login'; throw new Error('connexion requise'); }
   let data = null;
   try { data = await r.json(); } catch { /* corps vide */ }
