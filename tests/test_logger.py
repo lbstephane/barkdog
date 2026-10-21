@@ -104,6 +104,11 @@ class MaskTest(unittest.TestCase):
         self.assertTrue(np.all(audio[:15800] == 0.5))             # avant le fondu : intact
         self.assertTrue(0 < audio[15950] < 0.5)                   # fondu juste avant la zone
         self.assertTrue(np.all(audio[32200:] == 0.5))
+        # hors des zones masquées, le son est identique au bit près (aléatoire, pas seulement constant)
+        noisy = [fakes.block(seed=i) for i in range(6)]
+        out, _, _ = b.mask_speech(noisy, [False, False, False, True, False, False])
+        self.assertTrue(np.array_equal(out[:15800], np.concatenate(noisy)[:15800]))
+        self.assertTrue(np.array_equal(out[32200:], np.concatenate(noisy)[32200:]))
 
     def test_no_speech_untouched(self):
         blocks = [fakes.block(seed=i) for i in range(3)]

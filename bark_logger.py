@@ -299,8 +299,11 @@ def mask_speech(blocks, flags):
             keep[edges[max(0, i - 1)]:edges[i + 1]] = 0.0
     ramp = 160
     # fondu uniquement à l'extérieur des zones muettes : la parole reste entièrement masquée
-    padded = np.pad(keep, (ramp // 2, ramp - ramp // 2 - 1), mode="edge")   # pas de fondu aux extrémités
-    smooth = np.minimum(np.convolve(padded, np.ones(ramp) / ramp, mode="valid"), keep)
+    padded = np.pad(keep.astype(np.int32), (ramp // 2, ramp - ramp // 2 - 1), mode="edge")   # pas de fondu aux extrémités
+    # moyenne glissante en entiers : exactement 1 hors des fondus, sur tout processeur (le son non masqué
+    # reste identique au bit près ; une somme en flottants donnait parfois 0,99999994 selon le CPU)
+    counts = np.convolve(padded, np.ones(ramp, dtype=np.int32), mode="valid")
+    smooth = np.minimum(counts.astype(np.float32) / np.float32(ramp), keep)
     segs, start = [], None
     for i, k in enumerate(keep[::HOP // 10]):           # résolution 50 ms
         t = i * (HOP // 10) / SR
