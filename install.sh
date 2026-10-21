@@ -16,12 +16,12 @@ echo "== Environnement Python"
 if [ -d .venv ] && ! .venv/bin/python -c "import sys" 2>/dev/null; then rm -rf .venv; fi
 [ -d .venv ] || python3 -m venv .venv
 .venv/bin/python -m pip install --upgrade pip
-.venv/bin/python -m pip install numpy sounddevice scipy
+.venv/bin/python -m pip install -r requirements.txt
 # Moteur d'inférence : ai-edge-litert (successeur de tflite-runtime, dispo pour Python 3.13) ;
 # tflite-runtime seulement en secours, pour les anciens systèmes.
-if ! .venv/bin/python -c "import ai_edge_litert.interpreter" 2>/dev/null \
+if ! .venv/bin/python -m pip install -r requirements-engine.txt 2>/dev/null \
    && ! .venv/bin/python -c "import tflite_runtime.interpreter" 2>/dev/null; then
-  .venv/bin/python -m pip install ai-edge-litert 2>/dev/null || .venv/bin/python -m pip install tflite-runtime
+  .venv/bin/python -m pip install tflite-runtime
 fi
 
 echo "== Modèle YAMNet"

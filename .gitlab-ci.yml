@@ -1,9 +1,15 @@
+# Analyses de sécurité gratuites de GitLab : SAST (Semgrep) et recherche de secrets.
+# Les rapports sont dans les artefacts des jobs (gl-sast-report.json, gl-secret-detection-report.json).
+include:
+  - template: Jobs/SAST.gitlab-ci.yml
+  - template: Jobs/Secret-Detection.gitlab-ci.yml
+
 # Tests sans matériel ni modèle (micro et IA simulés).
 tests:
   stage: test
   image: python:3.13-slim
   script:
-    - pip install --quiet numpy scipy
+    - pip install --quiet numpy scipy   # sounddevice exige PortAudio : inutile, le micro est simulé
     - python -m unittest discover -s tests -v
 
 # Site vitrine : https://lbstephane.gitlab.io/barkdog/ (branche main uniquement).

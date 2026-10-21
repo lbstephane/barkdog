@@ -3,6 +3,13 @@
 All notable changes to BarkDog. Versions follow [semantic versioning](https://semver.org/).
 🇫🇷 Version française plus bas.
 
+## [Unreleased]
+
+### Project
+- Python dependencies declared in `requirements.txt` and `requirements-engine.txt`, used by `install.sh` (lets dependency scanners such as Dependabot see them).
+- CI: GitLab SAST (Semgrep) and secret detection jobs.
+- Website and promo videos in English, with a FR / EN switch.
+
 ## [1.0.0] — 2026-10-19
 
 First public release.

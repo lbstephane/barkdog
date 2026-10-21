@@ -1,0 +1,3 @@
+# Moteur d'inférence TFLite pour YAMNet. install.sh se rabat sur tflite-runtime
+# si ai-edge-litert n'est pas disponible pour le système (anciennes versions de Python).
+ai-edge-litert>=1.0.1
