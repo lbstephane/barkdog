@@ -18,9 +18,11 @@ let EVENTS = [], LIMIT = 60, CONFIG = null, CATALOG = {profils: [], exclusions: 
 let JVER = null, REC = false, pendingRefresh = false, NEW_FILES = new Set(), statusTimer = null;
 
 /* ---------- appels au boîtier (anti-CSRF : en-tête applicatif sur chaque POST) ---------- */
+// Liste fermée des points d'API du boîtier : jamais d'URL absolue ni d'autre origine.
+const API_PATHS = new Set(['annotate', 'config', 'delete', 'events', 'live', 'logout', 'password',
+  'purge', 'restore', 'service', 'status', 'testmode'].map(p => '/api/' + p));
 async function api(url, body) {
-  // Uniquement des chemins locaux du boîtier : jamais d'URL absolue ni d'autre origine.
-  if (!/^\/api\/[a-z]+$/.test(url)) throw new Error('chemin non autorisé : ' + url);
+  if (!API_PATHS.has(url)) throw new Error('chemin non autorisé : ' + url);
   const opts = body === undefined ? {} : {
     method: 'POST', headers: {'Content-Type': 'application/json', 'X-Requested-With': 'barkdog', 'X-Lang': window.I18N.lang},
     body: JSON.stringify(body),
