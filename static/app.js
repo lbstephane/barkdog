@@ -15,12 +15,13 @@ const {t, locale: LOC} = window.I18N;
 const audioUrl = f => '/audio/' + f.split('/').map(encodeURIComponent).join('/');
 
 let EVENTS = [], LIMIT = 60, CONFIG = null, CATALOG = {profils: [], exclusions: []}, MICROS = [];
+let CLASSES = [], PERSO = [], PERSO_DRAFT = [], PERSO_MAX = 10, PERSO_CLASSES_MAX = 10;
 let JVER = null, REC = false, pendingRefresh = false, NEW_FILES = new Set(), statusTimer = null;
 
 /* ---------- appels au boîtier (anti-CSRF : en-tête applicatif sur chaque POST) ---------- */
 // Liste fermée des points d'API du boîtier : jamais d'URL absolue ni d'autre origine.
 const API_PATHS = new Set(['annotate', 'config', 'delete', 'events', 'live', 'logout', 'password',
-  'purge', 'restore', 'service', 'status', 'testmode'].map(p => '/api/' + p));
+  'purge', 'restore', 'service', 'status', 'testmode', 'verify'].map(p => '/api/' + p));
 async function api(url, body) {
   if (!API_PATHS.has(url)) throw new Error('chemin non autorisé : ' + url);
   const opts = body === undefined ? {} : {
@@ -126,6 +127,7 @@ function render() {
     const tip = t('{day} : {n} épisode(s), {dur}', {day: shortDay(k), n: d.n, dur: fmtDur(d.s)}) + (d.nn ? t(' (dont {n} la nuit)', {n: d.nn}) : '');
     return `<div class="bar" data-day="${k}" title="${esc(tip)}" aria-label="${esc(tip)}"><div class="d" style="height:${hd}%"></div><div class="n" style="height:${hn}%"></div></div>`;
   }).join('');
+  renderReliability();
   const ks = vals.map(([k]) => k);
   $('#axis').innerHTML = ks.length ? `<span>${shortDay(ks[0])}</span><span>${t('max {dur}/jour', {dur: fmtDur(max)})}</span><span>${shortDay(ks[ks.length - 1])}</span>` : '';
 
@@ -164,10 +166,32 @@ function render() {
   $('#list').innerHTML = html;
 }
 
+/* ---------- fiabilité : part des épisodes marqués « faux positif », par catégorie ---------- */
+function renderReliability() {
+  const f = $('#from').value, to = $('#to').value, c = $('#cat').value, n = $('#night').checked;
+  const list = EVENTS.filter(e => !e.supprime && (!f || dayKey(e.debut) >= f) && (!to || dayKey(e.debut) <= to)
+    && (!c || e.tags.includes(c)) && (!n || e.nuit));
+  const stats = {};
+  for (const e of list) for (const cat of e.tags) {
+    const s = stats[cat] ||= {n: 0, fp: 0}; s.n++; if (e.faux_positif) s.fp++;
+  }
+  const cats = Object.keys(stats).filter(k => k !== 'inconnu').sort((a, b) => catOrder(a) - catOrder(b));
+  if (!cats.length) { $('#reliab').innerHTML = `<p class="mute">${t('Aucun épisode sur cette période.')}</p>`; return; }
+  $('#reliab').innerHTML = `<table class="reltab"><thead><tr><th>${t('Catégorie')}</th><th>${t('Épisodes')}</th><th>${t('Faux positifs')}</th><th>${t('Fiabilité')}</th></tr></thead><tbody>`
+    + cats.map(k => {
+      const s = stats[k], p = Math.round((1 - s.fp / s.n) * 100);
+      return `<tr class="${catCol(k)}"><td><i class="sw"></i> ${esc(catLabel(k))}</td><td>${s.n}</td><td>${s.fp}</td><td>${t('{p} %', {p})}<span class="bar1" aria-hidden="true"><i style="width:${p}%"></i></span></td></tr>`;
+    }).join('') + '</tbody></table>';
+}
+
+/* niveau affiché sur la carte : moyenne pendant les détections (sinon moyenne de l'épisode), relatif au micro */
+const levelOf = e => { const v = parseFloat(e.niveau_detections_dBFS || e.niveau_moyen_dBFS); return Number.isFinite(v) ? v : null; };
+
 function card(e) {
   const cats = [...e.tags].sort((a, b) => catOrder(a) - catOrder(b));
   const score = Math.max(0, ...cats.map(c => e.scores?.[c] || 0));
   const masked = parseFloat(e.parole_masquee_s) || 0;
+  const lvl = levelOf(e);
   return `<article class="ev ${catCol(cats[0])} ${e.faux_positif ? 'fp' : ''} ${NEW_FILES.has(e.fichier) ? 'new' : ''}" data-f="${esc(e.fichier)}">
       <div class="row1">
         <span class="time">${esc(e.debut.slice(11, 19))}</span>
@@ -175,7 +199,7 @@ function card(e) {
         ${e.nuit ? `<span class="badge b-nuit">${t('nuit')}</span>` : ''}
         ${e.faux_positif ? `<span class="badge b-fp">${t('faux positif')}</span>` : ''}
         ${masked ? `<span class="badge b-mask" title="${t('Passages avec une voix rendus muets')}">${t('parole masquée {dur}', {dur: fmtDur(masked)})}</span>` : ''}
-        <span class="mute">${fmtDur(e.duree_s)}${score ? t(' · confiance IA {p} %', {p: Math.round(score * 100)}) : ''}</span>
+        <span class="mute">${fmtDur(e.duree_s)}${score ? t(' · confiance IA {p} %', {p: Math.round(score * 100)}) : ''}${lvl !== null ? ` · <span title="${t('Niveau moyen pendant les détections, relatif au micro (non calibré)')}">${t('niveau {n} dBFS', {n: Math.round(lvl)})}</span>` : ''}</span>
       </div>
       ${e.present ? `<audio controls preload="none" src="${audioUrl(e.fichier)}"></audio>${timeline(e)}` : `<p class="mute err">${t('Fichier audio absent de la carte.')}</p>`}
       <div class="actions">
@@ -324,10 +348,12 @@ $('#exp-events').onclick = () => {
   const list = filtered().sort((a, b) => a.debut < b.debut ? -1 : 1);
   download(`episodes_${suffix()}.csv`, [
     ['debut', 'fin', 'duree_s', 'categories', 'moments_dans_le_fichier', 'nuit_22h_7h', 'faux_positif', 'note', 'scores_max',
-      'parole_masquee_s', 'niveau_crete_dBFS', 'horloge_synchronisee', 'reglages', 'fichier', 'sha256'],
+      'parole_masquee_s', 'niveau_crete_dBFS', 'niveau_moyen_dBFS', 'niveau_detections_dBFS', 'horloge_synchronisee',
+      'reglages', 'fichier', 'sha256'],
     ...list.map(e => [e.debut, e.fin, e.duree_s, e.tags.map(catLabel).join(' + '), momentsText(e), e.nuit ? t('oui') : t('non'),
       e.faux_positif ? t('oui') : t('non'), e.note, Object.entries(e.scores || {}).map(([k, v]) => `${k}:${v}`).join('|'),
-      e.parole_masquee_s, e.niveau_crete_dBFS, e.horloge_synchronisee, e.reglages, e.fichier, e.sha256]),
+      e.parole_masquee_s, e.niveau_crete_dBFS, e.niveau_moyen_dBFS, e.niveau_detections_dBFS, e.horloge_synchronisee,
+      e.reglages, e.fichier, e.sha256]),
   ]);
 };
 $('#exp-days').onclick = () => {
@@ -346,6 +372,7 @@ async function loadStatus() {
     const s = await api('/api/status');
     const pills = [], age = s.dernier_signe_de_vie_s;
     if (s.version) $('#version').textContent = `BarkDog v${s.version}`;
+    $('#exp-v1').hidden = !s.journal_v1;
     if (s.ecoute_active) pills.push(['ok', t('Écoute active')]);
     else if (s.service === 'inactive') pills.push(['bad', t('Écoute arrêtée')]);
     else if (s.service === 'failed' || s.service === 'activating') pills.push(['bad', t('Écoute en échec (micro débranché ?)')]);
@@ -428,6 +455,30 @@ $('#svcbtn').onclick = async () => {
   await loadStatus(); setTimeout(loadStatus, 2500);
 };
 $('#refresh').onclick = () => { loadStatus(); refreshEvents(); };
+
+/* ---------- vérification d'intégrité (chaîne du journal + empreinte de chaque fichier) ---------- */
+$('#verify').onclick = async () => {
+  const b = $('#verify'), box = $('#verifyres');
+  b.disabled = true; box.hidden = false; box.className = 'card verifyres';
+  box.textContent = t('Vérification en cours (chaque fichier est relu, cela peut prendre une minute)…');
+  try {
+    const r = await api('/api/verify');
+    if (r.occupe) { box.textContent = t('Une vérification est déjà en cours.'); return; }
+    const f = r.fichiers || {}, items = [];
+    items.push(r.chaine === 'intacte' ? t('Chaîne du journal intacte ({n} épisodes).', {n: r.lignes})
+      : r.chaine === 'rompue' ? t('Chaîne du journal ROMPUE à la ligne {n} : une ligne a été modifiée, ajoutée ou supprimée.', {n: r.rupture_ligne})
+        : t('Journal sans chaînage (format 1.0).'));
+    if (r.journal_v1) items.push(t('Journal 1.0 archivé : {n} épisodes, empreinte {h}.', {n: r.journal_v1.lignes, h: `<code>${esc(r.journal_v1.sha256)}</code>`}));
+    items.push(t('Fichiers : {ok} conformes, {purge} supprimés définitivement (suppression tracée), {abs} absents, {mod} modifiés.',
+      {ok: f.verifies || 0, purge: f.supprimes_definitivement || 0, abs: (f.absents || []).length, mod: (f.modifies || []).length}));
+    for (const x of (f.modifies || []).slice(0, 10)) items.push(t('Modifié : {f}', {f: `<code>${esc(x)}</code>`}));
+    for (const x of (f.absents || []).slice(0, 10)) items.push(t('Absent : {f}', {f: `<code>${esc(x)}</code>`}));
+    box.classList.add(r.ok ? 'ok' : 'bad');
+    box.innerHTML = `<h3>${r.ok ? t('✓ Journal et fichiers intègres') : t('⚠ Problème d\'intégrité détecté')}</h3><ul>${items.map(i => `<li>${i}</li>`).join('')}</ul>`
+      + `<p class="mute">${t('Vérification notée dans l\'historique. En ligne de commande : .venv/bin/python integrite.py')}</p>`;
+  } catch (err) { box.textContent = t('Vérification impossible : {e}', {e: err.message}); }
+  finally { b.disabled = false; }
+};
 
 /* ---------- panneau des réglages ---------- */
 let DIRTY = false;
@@ -567,12 +618,15 @@ function syncRange(id) { const i = num(id); i.nextElementSibling.textContent = (
 function fillSettings() {
   const c = CONFIG;
   const groups = {};
-  CATALOG.profils.filter(p => p.id !== 'niveau').forEach(p => (groups[p.groupe] ||= []).push(p));
+  CATALOG.profils.filter(p => p.id !== 'niveau' && !p.perso).forEach(p => (groups[p.groupe] ||= []).push(p));
   $('#cfg-profils').innerHTML = Object.entries(groups).map(([g, ps]) => `<div class="profgroup"><h4>${esc(t(g))}</h4>${ps.map(p => `
     <div class="profrow ${catCol(p.id)}">
       <label class="chk"><input type="checkbox" name="profil" value="${esc(p.id)}" ${c.profils.includes(p.id) ? 'checked' : ''}><i class="sw"></i>${esc(catLabel(p.id))}</label>
       <input type="number" name="seuil_profil" data-id="${esc(p.id)}" min="0.05" max="0.95" step="0.05" placeholder="${t('seuil')}" title="${t('Seuil propre (facultatif)')}" value="${c.seuils_profils[p.id] ?? ''}">
     </div>`).join('')}</div>`).join('');
+  PERSO = (c.perso || []).map(x => ({...x, classes: [...x.classes]}));
+  renderPerso(new Set(c.profils));
+  PERSO_DRAFT = []; renderDraft(); $('#perso-label').value = ''; $('#perso-class').value = ''; $('#perso-msg').textContent = '';
   $('#cfg-excl').innerHTML = CATALOG.exclusions.map(e =>
     `<label class="chk"><input type="checkbox" name="exclusion" value="${esc(e.id)}" ${c.exclusions.includes(e.id) ? 'checked' : ''}> ${esc((window.I18N.lang === 'en' && e.label_en) || e.label)}</label>`).join('');
   $$('input[name=parole]').forEach(r => r.checked = r.value === c.parole);
@@ -601,6 +655,7 @@ function readSettings() {
   const niveau = num('seuil_niveau_dbfs').value;
   return {
     profils: $$('input[name=profil]:checked').map(i => i.value),
+    perso: PERSO.map(({id, label, classes}) => ({id, label, classes})),
     exclusions: $$('input[name=exclusion]:checked').map(i => i.value),
     seuil: +num('seuil').value, seuils_profils: seuils,
     parole: $('input[name=parole]:checked')?.value || 'masquer', seuil_parole: +num('seuil_parole').value,
@@ -610,9 +665,74 @@ function readSettings() {
       min_detections: +num('min_detections').value},
   };
 }
+/* ---------- nuisances personnalisées (classes YAMNet au choix) ---------- */
+function renderPerso(checked, keepThr) {   // keepThr : garder les seuils déjà saisis (ajout / suppression)
+  const thr = keepThr ? Object.fromEntries($$('#cfg-perso input[name=seuil_profil]').map(i => [i.dataset.id, i.value])) : {};
+  $('#cfg-perso').innerHTML = PERSO.length ? PERSO.map((p, i) => `
+    <div class="profrow perso col-${i % 10}">
+      <label class="chk"><input type="checkbox" name="profil" value="${esc(p.id)}" ${checked.has(p.id) ? 'checked' : ''}><i class="sw"></i>${esc(p.label)}</label>
+      <input type="number" name="seuil_profil" data-id="${esc(p.id)}" min="0.05" max="0.95" step="0.05" placeholder="${t('seuil')}" title="${t('Seuil propre (facultatif)')}" value="${esc(thr[p.id] ?? CONFIG.seuils_profils[p.id] ?? '')}">
+      <button type="button" class="pdel danger" data-perso-del="${esc(p.id)}" aria-label="${esc(t('Supprimer « {n} »', {n: p.label}))}" title="${esc(t('Supprimer « {n} »', {n: p.label}))}">✕</button>
+      <span class="pclasses">${p.classes.map(esc).join(' · ')}</span>
+    </div>`).join('') : `<p class="help">${t('Aucune pour l\'instant.')}</p>`;
+  $('#perso-add').hidden = PERSO.length >= PERSO_MAX;
+}
+const checkedProfiles = () => new Set($$('input[name=profil]:checked').map(i => i.value));
+function renderDraft() {
+  $('#perso-classes').innerHTML = PERSO_DRAFT.map((c, i) => `<button type="button" class="chip rm" data-draft-del="${i}" title="${esc(t('Retirer'))}">${esc(c)}</button>`).join('');
+}
+function slug(label) {
+  let id = label.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase().replace(/[^a-z0-9]+/g, '_').replace(/^_+|_+$/g, '').slice(0, 20) || 'perso';
+  if (!/^[a-z]/.test(id)) id = 'p_' + id.slice(0, 18);
+  const taken = new Set([...CATALOG.profils.filter(p => !p.perso).map(p => p.id), ...CATALOG.exclusions.map(e => e.id),
+    ...PERSO.map(p => p.id), 'niveau', 'inconnu']);
+  let out = id, n = 2;
+  while (taken.has(out)) out = `${id.slice(0, 20)}_${n++}`;
+  return out;
+}
+function addDraftClass() {
+  const v = $('#perso-class').value.trim(), msg = $('#perso-msg');
+  if (!v) return;
+  const name = CLASSES.find(c => c.toLowerCase() === v.toLowerCase());
+  if (CLASSES.length && !name) { msg.textContent = t('Son inconnu : choisissez un nom dans la liste.'); return; }
+  if (PERSO_DRAFT.length >= PERSO_CLASSES_MAX) { msg.textContent = t('{n} sons au maximum.', {n: PERSO_CLASSES_MAX}); return; }
+  if (!PERSO_DRAFT.includes(name || v)) PERSO_DRAFT.push(name || v);
+  $('#perso-class').value = ''; msg.textContent = ''; renderDraft(); $('#perso-class').focus();
+}
+$('#perso-addclass').onclick = addDraftClass;
+$('#perso-class').addEventListener('keydown', ev => { if (ev.key === 'Enter') { ev.preventDefault(); addDraftClass(); } });
+$('#perso-classes').addEventListener('click', ev => {
+  const b = ev.target.closest('[data-draft-del]'); if (!b) return;
+  PERSO_DRAFT.splice(+b.dataset.draftDel, 1); renderDraft();
+});
+$('#perso-create').onclick = () => {
+  const label = $('#perso-label').value.trim(), msg = $('#perso-msg');
+  if ($('#perso-class').value.trim()) addDraftClass();
+  if (!label) { msg.textContent = t('Donnez un nom à cette nuisance.'); $('#perso-label').focus(); return; }
+  if (!PERSO_DRAFT.length) { msg.textContent = t('Ajoutez au moins un son.'); $('#perso-class').focus(); return; }
+  const checked = checkedProfiles(), id = slug(label);
+  PERSO.push({id, label, classes: [...PERSO_DRAFT]}); checked.add(id);
+  PERSO_DRAFT = []; renderDraft(); $('#perso-label').value = '';
+  renderPerso(checked, true); DIRTY = true;
+  msg.textContent = t('« {n} » ajoutée : enregistrez les réglages pour l\'appliquer.', {n: label});
+};
+$('#cfg-perso').addEventListener('click', ev => {
+  const b = ev.target.closest('[data-perso-del]'); if (!b) return;
+  const p = PERSO.find(x => x.id === b.dataset.persoDel);
+  if (!p || !confirm(t('Supprimer la nuisance « {n} » ? Les enregistrements déjà faits sont conservés.', {n: p.label}))) return;
+  const checked = checkedProfiles(); checked.delete(p.id);
+  PERSO = PERSO.filter(x => x !== p); renderPerso(checked, true); DIRTY = true;
+});
+function setClasses(list) {
+  if (!list || list.length === CLASSES.length) return;
+  CLASSES = list;
+  $('#yamnet-classes').innerHTML = CLASSES.map(c => `<option value="${esc(c)}"></option>`).join('');
+}
+
 async function loadConfig() {
   const r = await api('/api/config');
   CONFIG = r.config; CATALOG = r.catalogue; MICROS = r.micros || [];
+  setClasses(r.classes_yamnet); PERSO_MAX = r.perso_max || 10; PERSO_CLASSES_MAX = r.perso_classes_max || 10;
   $('#cfgid').textContent = `· ${r.id}`; $('#cfgid').title = t('Identifiant des réglages (noté dans le journal et l\'historique)');
   fillSettings();
 }

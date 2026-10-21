@@ -72,6 +72,12 @@
     <div class="legend"><span><i class="ld"></i>Jour (7h–22h)</span><span><i class="ln"></i>Nuit (22h–7h)</span><span>Toucher une barre pour voir ce jour</span></div>
   </div>
 
+  <h2>Fiabilité de la détection</h2>
+  <div class="card">
+    <div id="reliab"></div>
+    <p class="help">Calculée sur la période choisie, à partir des épisodes que vous marquez « Faux positif ». Plus vous marquez les erreurs, plus la mesure est juste.</p>
+  </div>
+
   <h2>Exports</h2>
   <div class="actions">
     <button id="exp-events">Épisodes filtrés (CSV)</button>
@@ -79,8 +85,11 @@
     <a class="btn" href="/export/journal.csv">Journal brut d'origine</a>
     <a class="btn" href="/export/historique.csv">Historique (marche, réglages…)</a>
     <a class="btn" href="/export/ignores.csv">Épisodes écartés</a>
+    <a class="btn" href="/export/journal_v1.csv" id="exp-v1" hidden>Journal 1.0 (archivé)</a>
+    <button id="verify">Vérifier l'intégrité</button>
     <button id="refresh">Actualiser</button>
   </div>
+  <div class="card verifyres" id="verifyres" hidden role="status" aria-live="polite"></div>
 
   <h2>Épisodes</h2>
   <div class="trashbar">Corbeille : ces enregistrements ne sont plus comptés. « Restaurer » les remet en place, « Supprimer définitivement » efface le fichier de la carte (la ligne reste dans le journal brut).</div>
@@ -105,6 +114,21 @@
         <legend>Nuisances à enregistrer</legend>
         <p class="help">Cochez ce qui vous gêne. Le seuil propre à une nuisance est facultatif (sinon, seuil général).</p>
         <div id="cfg-profils"></div>
+        <div class="profgroup" id="cfg-perso-group">
+          <h4>Personnalisées</h4>
+          <div id="cfg-perso"></div>
+          <details class="persoadd" id="perso-add">
+            <summary>Ajouter une nuisance personnalisée</summary>
+            <p class="help">Choisissez un ou plusieurs sons parmi les 521 que l'IA connaît (noms en anglais). Astuce : lancez le mode test pendant le bruit, la ligne « L'IA entend surtout » donne les noms à utiliser.</p>
+            <label>Nom affiché<input type="text" id="perso-label" maxlength="40" placeholder="ex. pompe à chaleur"></label>
+            <label>Son à reconnaître
+              <span class="inline"><input type="text" id="perso-class" list="yamnet-classes" placeholder="ex. Mechanical fan" autocapitalize="off" spellcheck="false"><button type="button" id="perso-addclass">Ajouter ce son</button></span>
+            </label>
+            <datalist id="yamnet-classes"></datalist>
+            <div class="chips" id="perso-classes"></div>
+            <div class="formbar"><button type="button" id="perso-create">Créer la nuisance</button><span class="mute" id="perso-msg" role="status"></span></div>
+          </details>
+        </div>
       </fieldset>
       <fieldset>
         <legend>Sons à ignorer</legend>

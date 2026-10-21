@@ -172,6 +172,38 @@ class WebTest(unittest.TestCase):
         self.assertIn("reglages modifies", (self.out / "historique_ecoute.csv").read_text())
         self.req("POST", "/api/config", {"config": {}}, HDR, cookie=self.cookie)   # retour aux valeurs par défaut
 
+    def test_custom_nuisance_and_conflict(self):
+        perso = [{"id": "frigo", "label": "Frigo", "classes": ["Hum"]}]
+        r, d = self.req("POST", "/api/config", {"config": {"perso": perso, "profils": ["aboiement", "frigo"]}}, HDR, cookie=self.cookie)
+        self.assertEqual(r.status, 200, d)
+        res = json.loads(d)
+        self.assertIn("frigo", [p["id"] for p in res["catalogue"]["profils"]])
+        self.assertIn("Hum", res["classes_yamnet"])
+        self.assertTrue(any(m.startswith("perso : aucune -> Frigo (Hum)") for m in res["modifications"]))
+        bad = {"config": {"profils": ["trafic"], "exclusions": ["circulation"]}}
+        r, d = self.req("POST", "/api/config", bad, HDR | {"X-Lang": "en"}, cookie=self.cookie)
+        self.assertEqual(json.loads(d)["erreur"], "“Road traffic” and the sound to ignore “Traffic (cars, trucks)” "
+                                                  "exclude each other: untick one of them")
+        self.req("POST", "/api/config", {"config": {}}, HDR, cookie=self.cookie)
+
+    def test_verify_and_archived_journal(self):
+        r, d = self.req("GET", "/api/verify", cookie=self.cookie)
+        res = json.loads(d)
+        self.assertEqual(res["chaine"], "absente")                     # journal de test au format 1.0
+        self.assertFalse(res["ok"])                                    # sha256 « abc » ne correspond pas au fichier
+        self.assertIn("verification d'integrite", (self.out / "historique_ecoute.csv").read_text())
+        self.assertEqual(self.req("GET", "/api/verify")[0].status, 401)
+        v1 = self.out / "journal_evenements_v1.csv"
+        v1.write_text((self.out / "journal_evenements.csv").read_text(encoding="utf-8").replace("05:12:00", "04:00:00"),
+                      encoding="utf-8")
+        try:
+            r, d = self.req("GET", "/api/events", cookie=self.cookie)
+            self.assertEqual(len(json.loads(d)), 2)                    # archive 1.0 + journal courant
+            self.assertTrue(json.loads(self.req("GET", "/api/status", cookie=self.cookie)[1])["journal_v1"])
+            self.assertEqual(self.req("GET", "/export/journal_v1.csv", cookie=self.cookie)[0].status, 200)
+        finally:
+            v1.unlink()
+
     def test_trash_flow(self):
         f = "2026-10-18/a.wav"
         self.assertEqual(self.req("POST", "/api/purge", {"fichier": f}, HDR, cookie=self.cookie)[0].status, 404)

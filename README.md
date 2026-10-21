@@ -19,15 +19,16 @@ The goal: build a factual record (dates, times, durations, repetition, night or 
 ## Features
 
 - **Local AI detection**: [YAMNet](https://github.com/tensorflow/models/tree/master/research/audioset/yamnet) (Google, 521 AudioSet sound classes), analysis every 0.5 s. No sound ever leaves the box.
-- **Choose your nuisances** in the web page, with an optional threshold per nuisance. **Sounds to ignore**: ducks, birds, rain, traffic… **Optional trigger on sound level** alone.
+- **Choose your nuisances** in the web page, with an optional threshold per nuisance: animals, music, construction work, fireworks, engines, alarms, **aircraft and helicopters**, **road traffic**… **Custom nuisances**: any of the 521 sounds the AI knows (fan, heat pump, hum…). **Sounds to ignore**: ducks, birds, rain, traffic… **Optional trigger on sound level** alone.
 - **Complete episodes**: the seconds before the trigger are kept, and the episode closes after an adjustable quiet time. An isolated sound can be discarded (minimum number of detections), but it is still logged.
 - **Timeline** in every file: one lane per category and “0:34 howling” buttons to jump straight to the right moment.
 - **Privacy**: passages where the AI hears a human voice are **silenced** in the files (on by default) and flagged on the timeline.
-- **Traceability**: SHA-256 fingerprint of every WAV file; identifier of the settings used; history of starts, stops, settings changes, deletions and test modes; log of discarded episodes.
+- **Traceability**: SHA-256 fingerprint of every WAV file; **chained log** (each line contains the fingerprint of the previous one, so a line changed or removed afterwards shows) and one-click **integrity check**; identifier of the settings used; history of starts, stops, settings changes, deletions and test modes; log of discarded episodes.
 - **Web page** for iPhone and Android:
   - listening status, start / stop button;
   - “recording” banner, list that updates on its own;
   - filters, statistics per day and at night, CSV exports;
+  - average level of each episode (during detections) and **reliability per category**, computed from the false positives you flag;
   - annotations (false positive, notes) and trash;
   - **test mode** with live AI scores, without recording;
   - interface in **English or French**, selectable in Settings.
@@ -38,7 +39,7 @@ The goal: build a factual record (dates, times, durations, repetition, night or 
 | | Recommended | Notes |
 |---|---|---|
 | Board | **Raspberry Pi Zero 2 W**, 3, 4 or 5 | **Raspberry Pi OS 64-bit** required (Lite is enough). |
-| Microphone | **USB microphone** (USB lavalier mic, or USB sound card plus mic) | Avoid conference microphones with “noise reduction”: they erase distant barking. The 3.5 mm jack on the Pi 3 and Pi 4 is **output only**. |
+| Microphone | **USB microphone** (USB lavalier mic, or USB sound card plus mic) | A USB lavalier mic costing around €10 is enough. Avoid conference microphones with “noise reduction”: they erase distant barking. The 3.5 mm jack on the Pi 3 and Pi 4 is **output only**. |
 | Power supply | 5 V 2.5 A (Pi 3 / Zero 2 W), 5 V 3 A USB-C (Pi 4) | A 1 A supply is enough to prevent booting. |
 | Storage | 16 GB microSD card | About 1.9 MB per recorded minute. |
 
@@ -72,9 +73,10 @@ pcm.mic { type plug slave.pcm "hw:CARD=Device,DEV=0" }
 
 Open **http://\<pi-name\>.local:8080** from your home Wi-Fi. On iPhone, use “Share → Add to Home Screen”.
 
-1. **Settings** (gear icon): tick the nuisances, adjust the microphone, gain and filter, pick the language. Changes apply within seconds without stopping listening; only a microphone change restarts it, for about 10 s.
+1. **Settings** (gear icon): tick the nuisances, adjust the microphone, gain and filter, pick the language. For a noise that is not in the list, use “Add a custom nuisance”: run test mode while the noise is happening, and the “The AI mostly hears” line gives the sound names to pick. Changes apply within seconds without stopping listening; only a microphone change restarts it, for about 10 s.
 2. **Test mode**: shows live scores against the thresholds, the level, what the AI “hears” and voice detections. By default nothing is recorded during the test. The pause expires on its own 5 min after the page is closed, and after at most 30 min of testing.
 3. **Episodes**: playback, timeline, annotations, trash. Days fold and unfold; today and yesterday are open by default. Permanent deletion is only possible from the trash, and the line stays in the raw log.
+4. **Exports**: “Check integrity” recomputes the log chain and the fingerprint of every file; the result is written to the history.
 
 **Remote access**: do **not** open a port on your router. Use a VPN: [Tailscale](https://tailscale.com) (nothing to configure on the router) or WireGuard.
 - With Tailscale, `sudo tailscale serve --bg 8080` adds HTTPS. The session cookie then becomes `Secure`.
@@ -89,7 +91,8 @@ enregistrements/                 # recordings
   2026-10-16/
     2026-10-16_05h42m10s_aboiement+hurlement.wav   # the episode (16 kHz mono); aboiement = barking, hurlement = howling
     2026-10-16_05h42m10s_aboiement+hurlement.json  # timeline + masked speech passages
-  journal_evenements.csv     # 1 line per episode: times, categories, scores, SHA-256, settings
+  journal_evenements.csv     # 1 line per episode: times, categories, scores, levels, SHA-256, settings, chain
+  journal_evenements_v1.csv  # 1.0 log, archived unchanged during the upgrade (starting point of the chain)
   episodes_ignores.csv       # discarded episodes (too short, speech…): nothing is dropped silently
   historique_ecoute.csv      # starts, stops, settings, deletions, test mode, sign-ins
   annotations.json           # false positives, notes, trash (the log is never modified)
@@ -97,7 +100,12 @@ enregistrements/                 # recordings
 config/                      # (0700) settings, hashed password, session key
 ```
 
+Log columns added in 1.1: `niveau_detections_dBFS` (average level during detections only) and `chaine` (chain). `niveau_moyen_dBFS` now excludes masked speech passages. Levels are in dBFS, relative to the microphone.
+
+**Chained log**: `chaine` = SHA-256 of “previous line's chain `;` the line's other columns separated by `;`”. The first line starts from 64 zeros, or from the fingerprint of the archived 1.0 log. When upgrading to 1.1, the 1.0 log is not rewritten: it is archived unchanged and its fingerprint is written to the history.
+
 Command-line tools:
+- `.venv/bin/python integrite.py [--sans-fichiers]` checks the log chain and the fingerprint of every file (without changing anything; `--sans-fichiers` = chain only);
 - `.venv/bin/python reanalyse.py [--force]` rebuilds timelines with the current settings;
 - `.venv/bin/python rapport.py` prints a daily summary;
 - `.venv/bin/python auth.py --set` changes the password.
@@ -119,6 +127,7 @@ Threat model: the page is meant for the **local network and a VPN**, never for d
   - the web page is sandboxed the same way, except for `NoNewPrivileges`, which the start / stop button needs.
 - **sudo**: a single rule, limited to `systemctl start|stop barkdog`.
 - **Traceability**: sign-ins, settings, deletions and start / stop are written to the history; refusals appear in `journalctl -u barkdog-web`.
+- **Code analysis on every push**: CodeQL (GitHub), Semgrep SAST and secret detection (GitLab CI), Dependabot alerts on dependencies.
 
 Found a vulnerability? Please report it privately before any publication, with a [confidential issue on GitLab](https://gitlab.com/lbstephane/barkdog/-/issues/new) (tick “This issue is confidential”).
 
@@ -128,24 +137,43 @@ Found a vulnerability? Please report it privately before any publication, with a
 - Point the microphone at the source of the nuisance, not at homes or public walkways.
 - Noise rules vary by country. In France, behavioural noise (animals, shouting, music…) is assessed on its **duration, repetition or intensity**, while activity noise requires a sound-level meter measurement. The log helps make repetition and timing objective. For any proceedings, seek advice from a mediator, a lawyer or the competent local authority.
 
+## FAQ
+
+**Does voice masking “break” the value of the file?** The sealed file is the one the box recorded, with voices already silenced. Nothing is hidden, though: every masked passage is timestamped in the timeline (`.json`), shown on the timeline bar and counted in the log (`parole_masquee_s`). A bark that happens during a voice is masked with it: privacy comes first. Filtering out the voice while keeping the bark gives unreliable results, and a voice that is not fully erased is a legal problem.
+
+**What about a bailiff or official report?** BarkDog does not replace one. But the log shows when the nuisance is most likely, which helps choose when to call in an official (in France, a *commissaire de justice*), or support a request to a mediator or the local authority.
+
+**What about the TV, or a child imitating a dog?** A short sound is not enough if you require several detections per episode (“Minimum detections”). The microphone is meant to be outside, pointed at the source. Thresholds and test mode let you fine-tune, and the reliability per category measures the result at your place.
+
+**Can it recognise dog breeds, or bird species?** No: YAMNet recognises families of sounds (barking, howling, bird song…), not breeds or species. For birds, see the open-source [BirdNET-Pi](https://github.com/Nachtzuster/BirdNET-Pi) project.
+
+**What about infrasound?** Out of reach: audio is sampled at 16 kHz, YAMNet's analysis starts around 125 Hz, and a USB microphone picks up little below 50 Hz. The “Bass, drums” profile covers audible bass.
+
+**Can it “answer back” to the dogs, or watch the neighbourhood?** No, and that is not planned: BarkDog documents, it does not retaliate, and it is not a neighbourhood surveillance tool.
+
+## Roadmap
+
+See [ROADMAP.md](ROADMAP.md).
+
 ## Development
 
 ```bash
-python3 -m unittest discover -s tests          # 34 tests, no hardware or model needed (simulated mic and AI)
+python3 -m unittest discover -s tests          # 43 tests, no hardware or model needed (simulated mic and AI)
 python3 tests/demo.py --out /tmp/demo/enregistrements --config /tmp/demo/config/config.json --speed 4
 python3 auth.py --config-dir /tmp/demo/config --set
 python3 web.py --out /tmp/demo/enregistrements --config-dir /tmp/demo/config --no-service-control
 ```
 
-The demo runs the real recorder with a fake microphone and a fake model. Its looping scenario includes howling then barking, a voice, ducks and an isolated bark.
+The demo runs the real recorder with a fake microphone and a fake model. Its looping scenario includes howling then barking, a voice, ducks, an isolated bark and a helicopter.
 
 Code layout:
 
 | File | Role |
 |---|---|
-| `catalog.py` | Nuisances, exclusions and speech classes (mapping to YAMNet), labels in French and English. |
+| `catalog.py` | Nuisances, exclusions and speech classes (mapping to YAMNet), labels in French and English, custom nuisances. |
 | `config.py` | Settings (`config/config.json`): validation, fingerprint, differences. |
-| `bark_logger.py` | Recorder: detection, episodes, speech masking, log. |
+| `bark_logger.py` | Recorder: detection, episodes, speech masking, levels, log. |
+| `integrite.py` | Chained log: computation and verification (chain and file fingerprints). |
 | `web.py`, `auth.py`, `static/` | Web page, Python standard library only. Translations in `static/i18n.js`. |
 
 Translations: the interface is in French by default and switches to English based on the browser language or the choice in Settings. To add or fix a translation, edit the dictionary in `static/i18n.js` (keys are the French texts).

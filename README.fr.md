@@ -19,15 +19,16 @@ Le but : constituer un dossier factuel (dates, heures, durées, répétition, de
 ## Fonctionnalités
 
 - **Détection locale par IA** : [YAMNet](https://github.com/tensorflow/models/tree/master/research/audioset/yamnet) (Google, 521 classes de sons AudioSet), analyse toutes les 0,5 s. Aucun son ne sort du boîtier.
-- **Nuisances au choix** dans la page, avec un seuil par nuisance si besoin. **Sons à ignorer** : canards, oiseaux, pluie, circulation… **Déclenchement facultatif sur le niveau sonore** seul.
+- **Nuisances au choix** dans la page, avec un seuil par nuisance si besoin : animaux, musique, travaux, pétards, moteurs, alarmes, **avions et hélicoptères**, **trafic routier**… **Nuisances personnalisées** : n'importe quel son parmi les 521 connus de l'IA (ventilateur, pompe à chaleur, bourdonnement…). **Sons à ignorer** : canards, oiseaux, pluie, circulation… **Déclenchement facultatif sur le niveau sonore** seul.
 - **Épisodes complets** : les secondes qui précèdent le déclenchement sont conservées, et l'épisode se clôt après un calme réglable. Un son isolé peut être écarté (nombre minimum de détections), mais il reste tracé.
 - **Chronologie** dans chaque fichier : une frise par catégorie et des boutons « 0:34 hurlement » pour aller directement au bon moment.
 - **Vie privée** : les passages où l'IA entend une voix humaine sont **rendus muets** dans les fichiers (par défaut), et signalés sur la frise.
-- **Traçabilité** : empreinte SHA-256 de chaque WAV ; identifiant des réglages utilisés ; historique des démarrages, arrêts, changements de réglages, suppressions et modes test ; journal des épisodes écartés.
+- **Traçabilité** : empreinte SHA-256 de chaque WAV ; **journal chaîné** (chaque ligne contient l'empreinte de la précédente : une ligne modifiée ou supprimée après coup se voit) et **vérification d'intégrité** en un clic ; identifiant des réglages utilisés ; historique des démarrages, arrêts, changements de réglages, suppressions et modes test ; journal des épisodes écartés.
 - **Page web** pour iPhone et Android :
   - état de l'écoute, bouton marche / arrêt ;
   - bandeau « enregistrement en cours », liste mise à jour toute seule ;
   - filtres, statistiques par jour et la nuit, exports CSV ;
+  - niveau moyen de chaque épisode (pendant les détections) et **fiabilité par catégorie**, calculée à partir des faux positifs que vous marquez ;
   - annotations (faux positif, notes) et corbeille ;
   - **mode test** avec les scores de l'IA en direct, sans enregistrer ;
   - interface en **français ou en anglais**, au choix dans les Réglages.
@@ -38,7 +39,7 @@ Le but : constituer un dossier factuel (dates, heures, durées, répétition, de
 | | Recommandé | Remarques |
 |---|---|---|
 | Carte | **Raspberry Pi Zero 2 W**, 3, 4 ou 5 | **Raspberry Pi OS 64 bits** obligatoire (Lite suffit). |
-| Micro | **Micro USB** (micro-cravate USB, carte son USB et micro) | Évitez les micros de conférence à « réduction de bruit » : ils effacent les aboiements lointains. La prise jack du Pi 3 et du Pi 4 est **une sortie seulement**. |
+| Micro | **Micro USB** (micro-cravate USB, carte son USB et micro) | Un micro-cravate USB à une dizaine d'euros suffit. Évitez les micros de conférence à « réduction de bruit » : ils effacent les aboiements lointains. La prise jack du Pi 3 et du Pi 4 est **une sortie seulement**. |
 | Alimentation | 5 V 2,5 A (Pi 3 / Zero 2 W), 5 V 3 A en USB-C (Pi 4) | Une alimentation de 1 A suffit à empêcher le démarrage. |
 | Stockage | Carte microSD de 16 Go | Environ 1,9 Mo par minute enregistrée. |
 
@@ -72,9 +73,10 @@ pcm.mic { type plug slave.pcm "hw:CARD=Device,DEV=0" }
 
 Ouvrez **http://\<nom-du-pi\>.local:8080** depuis le Wi-Fi de la maison. Sur iPhone, utilisez « Partager → Sur l'écran d'accueil ».
 
-1. **Réglages** : cochez les nuisances, ajustez le micro, le gain et le filtre. Les changements s'appliquent en quelques secondes, sans couper l'écoute ; seul un changement de micro la redémarre, pour environ 10 s.
+1. **Réglages** : cochez les nuisances, ajustez le micro, le gain et le filtre. Pour un bruit absent de la liste, « Ajouter une nuisance personnalisée » : lancez le mode test pendant le bruit, la ligne « L'IA entend surtout » donne les noms de sons à choisir. Les changements s'appliquent en quelques secondes, sans couper l'écoute ; seul un changement de micro la redémarre, pour environ 10 s.
 2. **Mode test** : affiche les scores en direct face aux seuils, le niveau, ce que l'IA « entend » et les détections de voix. Par défaut, rien n'est enregistré pendant le test. La suspension expire seule 5 min après la fermeture de la page, et au bout de 30 min de test au maximum.
 3. **Épisodes** : écoute, frise, annotations, corbeille. Une suppression définitive n'est possible que depuis la corbeille, et la ligne reste dans le journal brut.
+4. **Exports** : « Vérifier l'intégrité » recalcule la chaîne du journal et l'empreinte de chaque fichier ; le résultat est noté dans l'historique.
 
 **Accès depuis l'extérieur** : n'ouvrez **pas** de port sur votre box. Utilisez un VPN : [Tailscale](https://tailscale.com) (rien à configurer sur la box) ou WireGuard.
 - Avec Tailscale, `sudo tailscale serve --bg 8080` ajoute le HTTPS. Le cookie de session passe alors en `Secure`.
@@ -87,7 +89,8 @@ enregistrements/
   2026-10-16/
     2026-10-16_05h42m10s_aboiement+hurlement.wav   # l'épisode (16 kHz mono)
     2026-10-16_05h42m10s_aboiement+hurlement.json  # chronologie + passages de parole masqués
-  journal_evenements.csv     # 1 ligne par épisode : horaires, catégories, scores, SHA-256, réglages
+  journal_evenements.csv     # 1 ligne par épisode : horaires, catégories, scores, niveaux, SHA-256, réglages, chaîne
+  journal_evenements_v1.csv  # journal 1.0 archivé tel quel lors de la mise à jour (point de départ de la chaîne)
   episodes_ignores.csv       # épisodes écartés (trop courts, parole…) : jamais d'oubli silencieux
   historique_ecoute.csv      # démarrages, arrêts, réglages, suppressions, mode test, connexions
   annotations.json           # faux positifs, notes, corbeille (le journal n'est jamais modifié)
@@ -95,7 +98,12 @@ enregistrements/
 config/                      # (0700) réglages, mot de passe haché, clé de session
 ```
 
+Colonnes du journal ajoutées en 1.1 : `niveau_detections_dBFS` (niveau moyen pendant les seules détections) et `chaine`. `niveau_moyen_dBFS` exclut désormais les passages de parole masqués. Les niveaux sont en dBFS, relatifs au micro.
+
+**Journal chaîné** : `chaine` = SHA-256 de « chaîne de la ligne précédente `;` autres colonnes de la ligne séparées par `;` ». La première ligne part de 64 zéros, ou de l'empreinte du journal 1.0 archivé. À la mise à jour vers la 1.1, le journal 1.0 n'est pas réécrit : il est archivé tel quel et son empreinte est notée dans l'historique.
+
 Outils en ligne de commande :
+- `.venv/bin/python integrite.py [--sans-fichiers]` vérifie la chaîne du journal et l'empreinte de chaque fichier (sans rien modifier) ;
 - `.venv/bin/python reanalyse.py [--force]` recalcule les chronologies avec les réglages actuels ;
 - `.venv/bin/python rapport.py` produit une synthèse par jour ;
 - `.venv/bin/python auth.py --set` change le mot de passe.
@@ -117,6 +125,7 @@ Modèle de menace : la page est destinée au **réseau local et à un VPN**, jam
   - la page web est cloisonnée de la même façon, à l'exception de `NoNewPrivileges`, nécessaire au bouton marche / arrêt.
 - **sudo** : une seule règle, limitée à `systemctl start|stop barkdog`.
 - **Traçabilité** : connexions, réglages, suppressions et marche / arrêt sont inscrits dans l'historique ; les refus apparaissent dans `journalctl -u barkdog-web`.
+- **Analyse du code à chaque push** : CodeQL (GitHub), Semgrep SAST et recherche de secrets (CI GitLab), alertes Dependabot sur les dépendances.
 
 Une vulnérabilité ? Merci de la signaler en privé avant toute publication, par un [ticket confidentiel sur GitLab](https://gitlab.com/lbstephane/barkdog/-/issues/new) (case « This issue is confidential »).
 
@@ -126,24 +135,43 @@ Une vulnérabilité ? Merci de la signaler en privé avant toute publication, pa
 - Orientez le micro vers la source de la nuisance, pas vers les habitations ou les lieux de passage.
 - En France, les bruits de comportement (animaux, cris, musique…) s'apprécient selon leur **durée, leur répétition ou leur intensité**. Les bruits d'activités relèvent d'une mesure d'émergence au sonomètre. Le journal aide à objectiver la répétition et les horaires. Pour une procédure, rapprochez-vous de l'ADIL, d'un conciliateur, d'un avocat ou d'un commissaire de justice.
 
+## Questions fréquentes
+
+**Le masquage des voix « casse »-t-il la valeur du fichier ?** Le fichier scellé est celui que le boîtier a enregistré, voix déjà rendues muettes. Rien n'est caché pour autant : chaque passage masqué est horodaté dans la chronologie (`.json`), visible sur la frise et compté dans le journal (`parole_masquee_s`). Un aboiement qui tombe pendant une voix est masqué avec elle : la protection de la vie privée passe en premier. Filtrer la voix en gardant l'aboiement donne des résultats trop aléatoires, et une voix mal effacée pose un problème juridique.
+
+**Et un commissaire de justice ?** BarkDog ne remplace pas un constat. En revanche, le relevé montre quand la nuisance est la plus probable : c'est utile pour choisir le moment où faire venir un commissaire de justice, ou pour étayer une démarche auprès d'un conciliateur ou de la mairie.
+
+**La télévision ou un enfant qui imite un chien ?** Un son court ne suffit pas si vous demandez plusieurs détections par épisode (« Détections minimum »). Le micro est fait pour l'extérieur, tourné vers la source. Les seuils et le mode test permettent d'ajuster, et la fiabilité par catégorie mesure le résultat chez vous.
+
+**Peut-il reconnaître la race du chien, ou les espèces d'oiseaux ?** Non : YAMNet reconnaît des familles de sons (aboiement, hurlement, chant d'oiseau…), pas des races ni des espèces. Pour les oiseaux, voyez le projet libre [BirdNET-Pi](https://github.com/Nachtzuster/BirdNET-Pi).
+
+**Et les infrabasses ?** Hors de portée : l'audio est échantillonné à 16 kHz, l'analyse de YAMNet commence vers 125 Hz et un micro USB capte mal sous 50 Hz. Le profil « Basses, percussions » couvre les basses audibles.
+
+**Peut-il « répondre » aux chiens, ou surveiller le quartier ?** Non, et ce n'est pas prévu : BarkDog documente, il ne riposte pas, et il n'est pas un outil de surveillance du voisinage.
+
+## Feuille de route
+
+Voir [ROADMAP.md](ROADMAP.md).
+
 ## Développement
 
 ```bash
-python3 -m unittest discover -s tests          # 34 tests, sans matériel ni modèle (micro et IA simulés)
+python3 -m unittest discover -s tests          # 43 tests, sans matériel ni modèle (micro et IA simulés)
 python3 tests/demo.py --out /tmp/demo/enregistrements --config /tmp/demo/config/config.json --speed 4
 python3 auth.py --config-dir /tmp/demo/config --set
 python3 web.py --out /tmp/demo/enregistrements --config-dir /tmp/demo/config --no-service-control
 ```
 
-La démo lance le vrai enregistreur avec un faux micro et un faux modèle. Son scénario en boucle comprend des hurlements puis des aboiements, une voix, des canards et un aboiement isolé.
+La démo lance le vrai enregistreur avec un faux micro et un faux modèle. Son scénario en boucle comprend des hurlements puis des aboiements, une voix, des canards, un aboiement isolé et un hélicoptère.
 
 Organisation du code :
 
 | Fichier | Rôle |
 |---|---|
-| `catalog.py` | Nuisances, exclusions et classes de parole (correspondance vers YAMNet). |
+| `catalog.py` | Nuisances, exclusions et classes de parole (correspondance vers YAMNet), nuisances personnalisées. |
 | `config.py` | Réglages (`config/config.json`) : validation, empreinte, différences. |
-| `bark_logger.py` | Enregistreur : détection, épisodes, masquage de la parole, journal. |
+| `bark_logger.py` | Enregistreur : détection, épisodes, masquage de la parole, niveaux, journal. |
+| `integrite.py` | Journal chaîné : calcul et vérification (chaîne et empreintes des fichiers). |
 | `web.py`, `auth.py`, `static/` | Page web, en bibliothèque standard Python uniquement. Traductions dans `static/i18n.js`. |
 
 ## Soutenir

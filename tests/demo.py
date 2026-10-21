@@ -41,6 +41,8 @@ def scenario(n):
         s["Bark"], s["Quack"] = 0.4, 0.8   # canards confondus avec des aboiements : ignorés
     if t == 90:
         s["Bark"] = 0.6             # aboiement isolé
+    if 100 <= t < 108:
+        s["Helicopter"] = 0.66      # hélicoptère (nuisance « Avions, hélicoptères », si cochée)
     s["Speech"] = max(s.get("Speech", 0), 0.12)
     return s
 

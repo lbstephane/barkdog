@@ -86,11 +86,11 @@
         </li>
         <li>
           <h3>It keeps the episode</h3>
-          <p>The 10 seconds before the trigger are kept. The episode closes after an adjustable quiet time. The WAV file gets a per-category timeline and a SHA-256 fingerprint written to the log.</p>
+          <p>The 10 seconds before the trigger are kept. The episode closes after an adjustable quiet time. The WAV file gets a per-category timeline and a SHA-256 fingerprint written to a chained log: a line changed afterwards shows.</p>
         </li>
         <li>
           <h3>You review</h3>
-          <p>From your phone: playback with the howling timeline, day and night statistics, notes, trash and CSV exports for your records.</p>
+          <p>From your phone: playback with the howling timeline, day and night statistics, reliability per category, notes, integrity check and CSV exports for your records.</p>
         </li>
       </ol>
     </div>
@@ -108,7 +108,9 @@
         <p class="group">Human activity</p>
         <ul class="chips"><li>Music</li><li>Bass, drums</li><li>DIY, construction work</li><li>Firecrackers, fireworks</li></ul>
         <p class="group">Engines and alarms</p>
-        <ul class="chips"><li>Lawn mower, chainsaw</li><li>Motorbikes, scooters</li><li>Alarms, sirens</li><li>Horns</li><li>High sound level</li></ul>
+        <ul class="chips"><li>Lawn mower, chainsaw</li><li>Motorbikes, scooters</li><li>Alarms, sirens</li><li>Horns</li><li>Aircraft, helicopters</li><li>Road traffic</li><li>High sound level</li></ul>
+        <p class="group">Made to measure</p>
+        <ul class="chips"><li>Your own nuisances</li><li>Any of 521 sounds</li></ul>
         <p class="group">Sounds to ignore</p>
         <ul class="chips ignore"><li class="on">Ducks, geese</li><li>Songbirds</li><li>Wind, rain, thunder</li><li>Traffic</li></ul>
         <p class="legend"><i></i> on by default</p>
@@ -137,7 +139,7 @@
           <thead><tr><th scope="col"></th><th scope="col">Recommended</th><th scope="col">Good to know</th></tr></thead>
           <tbody>
             <tr><th scope="row">Board</th><td>Raspberry Pi Zero 2 W, 3, 4 or 5</td><td>Raspberry Pi OS 64-bit; the Lite version is enough.</td></tr>
-            <tr><th scope="row">Microphone</th><td>USB microphone, or USB sound card and mic</td><td>Avoid conference mics with noise reduction: they erase distant barking.</td></tr>
+            <tr><th scope="row">Microphone</th><td>USB lavalier mic (around €10), or USB sound card and mic</td><td>Avoid conference mics with noise reduction: they erase distant barking.</td></tr>
             <tr><th scope="row">Power supply</th><td>5 V 2.5 A, or 5 V 3 A USB-C for the Pi 4</td><td>A good-quality supply also keeps hum out of the recordings.</td></tr>
             <tr><th scope="row">Storage</th><td>16 GB microSD card</td><td>About 1.9 MB per recorded minute.</td></tr>
             <tr><th scope="row">Time</th><td>Network at boot, or a DS3231 RTC module</td><td>The Pi has no battery-backed clock; the page warns when the time is not synchronised.</td></tr>
@@ -185,8 +187,28 @@ cd ~/barkdog && TZ_NAME=Europe/London ./install.sh</code></pre>
         <p>Yes, through a VPN such as Tailscale or WireGuard. Do not open a port on your router: the page gives access to sensitive recordings.</p>
       </details>
       <details>
+        <summary>Which microphone should I use?</summary>
+        <p>A simple USB lavalier mic costing around €10 works very well. Avoid conference microphones with “noise reduction”, which erase precisely the distant barking. If you hear a hum, it is often the power supply: prefer the official one, or add a ferrite to the microphone cable.</p>
+      </details>
+      <details>
+        <summary>Doesn't voice masking weaken the record?</summary>
+        <p>The sealed file is the one the box recorded, with voices already silenced. Nothing is hidden, though: every masked passage is timestamped, shown on the timeline and counted in the log. A bark that happens during a voice is masked with it, because privacy comes first.</p>
+      </details>
+      <details>
+        <summary>How do I know the log has not been tampered with?</summary>
+        <p>Each line of the log contains the fingerprint of the previous one. Changing, adding or removing a line afterwards breaks this chain. The “Check integrity” button recomputes the chain and the SHA-256 fingerprint of every audio file, and writes the result to the history.</p>
+      </details>
+      <details>
+        <summary>What about an official report?</summary>
+        <p>BarkDog does not replace one. But the log shows when the nuisance is most likely, which helps you choose when to call in an official (a bailiff, or in France a <i>commissaire de justice</i>), or support a request to a mediator or your local authority.</p>
+      </details>
+      <details>
+        <summary>My noise is not in the list</summary>
+        <p>Create a custom nuisance from the 521 sounds the AI knows (fan, heat pump, hum…). Test mode shows what the AI “hears” during the noise, which gives you the sounds to pick. BarkDog does not recognise dog breeds or bird species; for birds, see <a href="https://github.com/Nachtzuster/BirdNET-Pi">BirdNET-Pi</a>.</p>
+      </details>
+      <details>
         <summary>What if the AI gets it wrong?</summary>
-        <p>Test mode shows live scores against the thresholds, without recording. You adjust the sensitivity, the minimum number of detections and the sounds to ignore. In the episode list, a false positive is flagged in one click without touching the original log.</p>
+        <p>Test mode shows live scores against the thresholds, without recording. You adjust the sensitivity, the minimum number of detections and the sounds to ignore. In the episode list, a false positive is flagged in one click without touching the original log, and the page uses those flags to show the reliability of each category at your place.</p>
       </details>
       <details>
         <summary>Why are some file names in French?</summary>

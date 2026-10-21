@@ -11,14 +11,16 @@ import copy
 import hashlib
 import json
 import os
+import re
 import tempfile
 from pathlib import Path
 
 import catalog
 
 DEFAULT = {
-    "version": 2,
+    "version": 3,
     "profils": [p["id"] for p in catalog.PROFILES if p.get("defaut")],
+    "perso": [],                   # nuisances personnalisées : [{"id", "label", "classes": [classes YAMNet]}]
     "exclusions": [e["id"] for e in catalog.EXCLUSIONS if e.get("defaut")],
     "seuil": 0.30,                 # score YAMNet mini pour compter une détection
     "seuils_profils": {},          # seuil propre à un profil, ex. {"musique": 0.5}
@@ -39,6 +41,9 @@ DEFAULT = {
 }
 
 PAROLE_MODES = ("masquer", "ignorer_episode", "desactive")
+PERSO_MAX = 10           # nuisances personnalisées
+PERSO_CLASSES_MAX = 10   # classes YAMNet par nuisance personnalisée
+PERSO_ID = re.compile(r"[a-z][a-z0-9_]{0,23}")   # sert aussi dans les noms de fichiers : rien d'autre
 
 
 class ConfigError(ValueError):
@@ -55,6 +60,36 @@ def _num(v, lo, hi, name, integer=False):
     return x
 
 
+def _perso(raw):
+    """Nuisances personnalisées : identifiant sûr (noms de fichiers), nom lisible, classes YAMNet existantes."""
+    if not isinstance(raw, list):
+        raise ConfigError("nuisance personnalisée invalide")
+    if len(raw) > PERSO_MAX:
+        raise ConfigError(f"nuisances personnalisées : {PERSO_MAX} au maximum")
+    known = set(catalog.yamnet_classes())
+    out, seen = [], set()
+    for item in raw:
+        if not isinstance(item, dict):
+            raise ConfigError("nuisance personnalisée invalide")
+        pid, label, classes = item.get("id"), item.get("label"), item.get("classes")
+        if not isinstance(label, str) or not (1 <= len(label.strip()) <= 40) or any(ord(c) < 32 for c in label):
+            raise ConfigError("nuisance personnalisée : nom de 1 à 40 caractères")
+        label = label.strip().replace(";", ",")
+        if not isinstance(pid, str) or not PERSO_ID.fullmatch(pid):
+            raise ConfigError("nuisance personnalisée invalide")
+        if pid in catalog.RESERVED_IDS or pid in seen:
+            raise ConfigError(f"identifiant déjà utilisé : {pid}")
+        if (not isinstance(classes, list) or not (1 <= len(classes) <= PERSO_CLASSES_MAX)
+                or not all(isinstance(c, str) for c in classes)):
+            raise ConfigError(f"nuisance personnalisée « {label} » : choisir de 1 à {PERSO_CLASSES_MAX} sons")
+        for c in classes:
+            if (known and c not in known) or len(c) > 100 or any(ord(x) < 32 for x in c):
+                raise ConfigError(f"nuisance personnalisée « {label} » : son inconnu « {c[:100]} »")
+        seen.add(pid)
+        out.append({"id": pid, "label": label, "classes": list(dict.fromkeys(classes))})
+    return out
+
+
 def validate(raw):
     """Fusionne avec les valeurs par défaut, contrôle types et bornes. Lève ConfigError."""
     if not isinstance(raw, dict):
@@ -63,25 +98,32 @@ def validate(raw):
     for k in ("audio", "episodes"):
         if isinstance(raw.get(k), dict):
             cfg[k].update({kk: vv for kk, vv in raw[k].items() if kk in cfg[k]})
-    for k in ("profils", "exclusions", "seuil", "seuils_profils", "parole", "seuil_parole"):
+    for k in ("profils", "perso", "exclusions", "seuil", "seuils_profils", "parole", "seuil_parole"):
         if k in raw:
             cfg[k] = raw[k]
 
+    cfg["perso"] = _perso(cfg["perso"])
+    all_ids = catalog.PROFILE_IDS + [c["id"] for c in cfg["perso"]]
     if not isinstance(cfg["profils"], list) or not all(isinstance(p, str) for p in cfg["profils"]):
         raise ConfigError("profils : liste attendue")
-    unknown = [p for p in cfg["profils"] if p not in catalog.PROFILE_IDS]
+    unknown = [p for p in cfg["profils"] if p not in all_ids]
     if unknown:
         raise ConfigError(f"profils inconnus : {', '.join(unknown)}")
-    cfg["profils"] = [p for p in catalog.PROFILE_IDS if p in cfg["profils"]]   # ordre du catalogue, sans doublon
+    cfg["profils"] = [p for p in all_ids if p in cfg["profils"]]   # ordre du catalogue, puis perso, sans doublon
     if not isinstance(cfg["exclusions"], list) or any(e not in catalog.EXCLUSION_IDS for e in cfg["exclusions"]):
         raise ConfigError("exclusions inconnues")
     cfg["exclusions"] = [e for e in catalog.EXCLUSION_IDS if e in cfg["exclusions"]]
+    for e in catalog.EXCLUSIONS:
+        clash = [p for p in e.get("conflits", []) if e["id"] in cfg["exclusions"] and p in cfg["profils"]]
+        if clash:
+            raise ConfigError(f"« {catalog.profile(clash[0])['label']} » et le son à ignorer « {e['label']} » "
+                              "s'excluent : décocher l'un des deux")
 
     cfg["seuil"] = _num(cfg["seuil"], 0.05, 0.95, "seuil")
     if not isinstance(cfg["seuils_profils"], dict):
         raise ConfigError("seuils_profils : objet attendu")
     cfg["seuils_profils"] = {p: _num(v, 0.05, 0.95, f"seuil {p}")
-                             for p, v in cfg["seuils_profils"].items() if p in catalog.PROFILE_IDS}
+                             for p, v in cfg["seuils_profils"].items() if p in all_ids}
     if cfg["parole"] not in PAROLE_MODES:
         raise ConfigError("parole : masquer, ignorer_episode ou desactive")
     cfg["seuil_parole"] = _num(cfg["seuil_parole"], 0.1, 0.95, "seuil_parole")
@@ -108,7 +150,7 @@ def validate(raw):
     ep["calme_s"] = _num(ep["calme_s"], 2, 120, "calme_s")
     ep["max_s"] = _num(ep["max_s"], 10, 1800, "max_s")
     ep["min_detections"] = _num(ep["min_detections"], 1, 60, "min_detections", integer=True)
-    cfg["version"] = 2
+    cfg["version"] = 3
     return cfg
 
 
@@ -150,6 +192,9 @@ def diff(old, new, prefix=""):
         a, b = old.get(k), new.get(k)
         if isinstance(a, dict) and isinstance(b, dict) and k != "seuils_profils":
             out += diff(a, b, f"{prefix}{k}.")
+        elif k == "perso" and a != b:
+            name = lambda lst: ", ".join(f"{c['label']} ({'+'.join(c['classes'])})" for c in lst or []) or "aucune"
+            out.append(f"{prefix}perso : {name(a)} -> {name(b)}")
         elif a != b:
             out.append(f"{prefix}{k} : {a} -> {b}")
     return out

@@ -7,7 +7,12 @@ import sys
 from pathlib import Path
 
 src = Path(sys.argv[1] if len(sys.argv) > 1 else Path(__file__).resolve().parent / "enregistrements" / "journal_evenements.csv")
-rows = list(csv.DictReader(open(src, encoding="utf-8"), delimiter=";"))
+rows = []
+# journal 1.0 archivé lors de la mise à jour (s'il existe), puis journal courant
+for p in (src.with_name("journal_evenements_v1.csv"), src):
+    if p.exists() and (p == src or src.name == "journal_evenements.csv"):
+        with open(p, encoding="utf-8") as f:
+            rows += list(csv.DictReader(f, delimiter=";"))
 
 days = collections.defaultdict(collections.Counter)
 cats = set()

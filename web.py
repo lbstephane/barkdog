@@ -29,6 +29,7 @@ from urllib.parse import parse_qs, unquote, urlparse
 
 import catalog
 import config as cfgmod
+import integrite
 from auth import Auth
 
 HERE = Path(__file__).resolve().parent
@@ -38,6 +39,7 @@ except OSError:
     VERSION = "?"
 STATIC = HERE / "static"
 ANN_LOCK = threading.Lock()
+VERIFY_LOCK = threading.Lock()
 CFG_LOCK = threading.Lock()
 TRASH = "corbeille"
 SYSTEMCTL = shutil.which("systemctl") or "/usr/bin/systemctl"
@@ -136,21 +138,23 @@ def parse_scores(r):
     return out
 
 
-def event_tags(r, scores, thr):
+def event_tags(r, scores, thr, cfg=None):
     """Catégorie d'origine + toute catégorie dont le score max a dépassé le seuil (épisodes mixtes)."""
     tags = [c for c in (r.get("categorie") or "").split("+") if c and c != "inconnu"]
     for c, s in scores.items():
-        if s >= thr and c not in tags and catalog.profile(c):
+        if s >= thr and c not in tags and catalog.profile(c, cfg):
             tags.append(c)
     return tags or ["inconnu"]
 
 
-def read_events(out_dir, thr):
-    p = out_dir / "journal_evenements.csv"
-    if not p.exists():
-        return []
-    with open(p, newline="", encoding="utf-8") as f:
-        rows = list(csv.DictReader(f, delimiter=";"))
+def read_events(out_dir, cfg):
+    """Épisodes du journal (et du journal 1.0 archivé, s'il existe), avec leurs annotations."""
+    thr, rows = cfg["seuil"], []
+    for name in (integrite.JOURNAL_V1, integrite.JOURNAL):
+        p = out_dir / name
+        if p.exists():
+            with open(p, newline="", encoding="utf-8") as f:
+                rows += list(csv.DictReader(f, delimiter=";"))
     ann = load_annotations(out_dir)
     events = []
     for r in rows:
@@ -162,9 +166,10 @@ def read_events(out_dir, thr):
         if a.get("purge"):
             continue  # supprimé définitivement : reste dans le journal brut, plus dans la page
         scores = parse_scores(r)
-        e = {k: r.get(k, "") for k in ("debut", "fin", "categorie", "fichier", "sha256", "niveau_crete_dBFS",
-                                        "horloge_synchronisee", "reglages", "parole_masquee_s")}
-        e.update(scores=scores, tags=event_tags(r, scores, thr), faux_positif=bool(a.get("faux_positif")),
+        e = {k: r.get(k, "") or "" for k in ("debut", "fin", "categorie", "fichier", "sha256", "niveau_crete_dBFS",
+                                              "niveau_moyen_dBFS", "niveau_detections_dBFS", "horloge_synchronisee",
+                                              "reglages", "parole_masquee_s")}
+        e.update(scores=scores, tags=event_tags(r, scores, thr, cfg), faux_positif=bool(a.get("faux_positif")),
                  note=a.get("note", ""), supprime=bool(a.get("supprime")), nuit=d.hour >= 22 or d.hour < 7)
         try:
             e["duree_s"] = float(r.get("duree_s") or 0)
@@ -383,7 +388,9 @@ class Handler(BaseHTTPRequestHandler):
             if path == "/api/session":
                 return self.send_json({"connecte": self.authenticated(), "mot_de_passe_defini": self.S.auth.configured})
             if path == "/api/events":
-                return self.send_json(read_events(self.out, self.S.cfg()["seuil"]))
+                return self.send_json(read_events(self.out, self.S.cfg()))
+            if path == "/api/verify":
+                return self.send_json(self.verify())
             if path == "/api/status":
                 return self.send_json(self.status())
             if path == "/api/config":
@@ -400,8 +407,8 @@ class Handler(BaseHTTPRequestHandler):
                     return self.send_error_json(404, "fichier introuvable")
                 dl = parse_qs(url.query).get("dl") == ["1"]
                 return self.send_file(p, "audio/wav", p.name if dl else None)
-            exports = {"/export/journal.csv": "journal_evenements.csv", "/export/historique.csv": "historique_ecoute.csv",
-                       "/export/ignores.csv": "episodes_ignores.csv"}
+            exports = {"/export/journal.csv": integrite.JOURNAL, "/export/journal_v1.csv": integrite.JOURNAL_V1,
+                       "/export/historique.csv": "historique_ecoute.csv", "/export/ignores.csv": "episodes_ignores.csv"}
             if path in exports:
                 p = self.out / exports[path]
                 if not p.exists():
@@ -472,7 +479,9 @@ class Handler(BaseHTTPRequestHandler):
     def config_payload(self):
         devs = read_json(self.S.devices_file) or {}
         cfg = self.S.cfg()
-        return {"config": cfg, "id": cfgmod.config_id(cfg), "catalogue": catalog.public(),
+        return {"config": cfg, "id": cfgmod.config_id(cfg), "catalogue": catalog.public(cfg),
+                "classes_yamnet": catalog.yamnet_classes(), "perso_max": cfgmod.PERSO_MAX,
+                "perso_classes_max": cfgmod.PERSO_CLASSES_MAX,
                 "micros": devs.get("micros", []), "parole_modes": list(cfgmod.PAROLE_MODES)}
 
     def save_config(self, path, data):
@@ -546,6 +555,21 @@ class Handler(BaseHTTPRequestHandler):
             append_history(self.out, f"enregistrement {label} : {fichier}", f"page web ({self.client_ip()})")
         self.send_json({"ok": True})
 
+    # ---- intégrité
+    def verify(self):
+        """Vérification complète (chaîne du journal + empreinte de chaque WAV), une à la fois."""
+        if not VERIFY_LOCK.acquire(blocking=False):
+            return {"occupe": True}
+        try:
+            r = integrite.verify(self.out)
+        finally:
+            VERIFY_LOCK.release()
+        f = r["fichiers"] or {}
+        append_history(self.out, f"verification d'integrite : {'integre' if r['ok'] else 'PROBLEME'} "
+                                 f"(chaine {r['chaine']}, {f.get('verifies', 0)} fichier(s) conforme(s))",
+                       f"page web ({self.client_ip()})")
+        return r
+
     # ---- mode test et service
     def testmode_action(self, path, data):
         """Active / renouvelle / coupe le mode test (pas d'enregistrement de fichiers)."""
@@ -599,7 +623,7 @@ class Handler(BaseHTTPRequestHandler):
         except Exception:
             service = None
         jv = []   # « version » du journal : change dès qu'un enregistrement ou une annotation est ajouté
-        for name in ("journal_evenements.csv", "annotations.json"):
+        for name in (integrite.JOURNAL, "annotations.json"):
             try:
                 st = (self.out / name).stat()
                 jv.append(f"{st.st_mtime_ns}:{st.st_size}")
@@ -626,6 +650,7 @@ class Handler(BaseHTTPRequestHandler):
             "horloge_synchronisee": clock_synced(),
             "disque_libre_go": round(du.free / 1e9, 1), "disque_total_go": round(du.total / 1e9, 1),
             "reglages": cfgmod.config_id(cfg), "reglages_ecoute": (live or {}).get("reglages"),
+            "journal_v1": (self.out / integrite.JOURNAL_V1).is_file(),
         }
 
 
@@ -653,6 +678,8 @@ MSG_EN = {
     "micro : nom ou index attendu": "microphone: name or index expected",
     "micro : nom invalide": "microphone: invalid name",
     "choisir au moins une nuisance (ou un seuil de niveau sonore)": "choose at least one nuisance (or a sound level threshold)",
+    "nuisance personnalisée invalide": "invalid custom nuisance",
+    "nuisance personnalisée : nom de 1 à 40 caractères": "custom nuisance: name of 1 to 40 characters",
 }
 MSG_EN_PATTERNS = [
     (re.compile(r"^trop de tentatives, réessayer dans (\d+) min$"), r"too many attempts, try again in \1 min"),
@@ -662,6 +689,12 @@ MSG_EN_PATTERNS = [
     (re.compile(r"^profils inconnus : (.+)$"), r"unknown profiles: \1"),
     (re.compile(r"^JSON invalide : (.+)$"), r"invalid JSON: \1"),
     (re.compile(r"^échec : (.+)$"), r"failed: \1"),
+    (re.compile(r"^nuisances personnalisées : (\d+) au maximum$"), r"custom nuisances: \1 at most"),
+    (re.compile(r"^identifiant déjà utilisé : (.+)$"), r"identifier already used: \1"),
+    (re.compile(r"^nuisance personnalisée « (.+) » : choisir de 1 à (\d+) sons$"), r"custom nuisance “\1”: choose 1 to \2 sounds"),
+    (re.compile(r"^nuisance personnalisée « (.+) » : son inconnu « (.+) »$"), r"custom nuisance “\1”: unknown sound “\2”"),
+    (re.compile(r"^« (.+) » et le son à ignorer « (.+) » s'excluent : décocher l'un des deux$"),
+     r"“\1” and the sound to ignore “\2” exclude each other: untick one of them"),
 ]
 
 
@@ -672,7 +705,10 @@ def translate_message(message, lang):
         return MSG_EN[message]
     for pat, repl in MSG_EN_PATTERNS:
         if pat.match(message):
-            return pat.sub(repl, message)
+            out = pat.sub(repl, message)
+            for item in catalog.PROFILES + catalog.EXCLUSIONS:   # noms des nuisances cités dans le message
+                out = out.replace(f"“{item['label']}”", f"“{item['label_en']}”")
+            return out
     return message
 
 

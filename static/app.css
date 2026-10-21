@@ -171,3 +171,33 @@ legend{font-weight:600;font-size:13.5px;padding:0 6px}
 .linkbtn:hover{color:var(--ink)}
 #lang{max-width:220px}
 .ver{display:block;margin-top:6px;font-variant-numeric:tabular-nums}
+
+/* v1.1 : nuisances personnalisées, fiabilité, vérification d'intégrité */
+.inline{display:flex;gap:8px;align-items:stretch}
+.inline input{flex:1;min-width:0}
+.persoadd{margin-top:8px;border:1px dashed var(--line);border-radius:8px;padding:8px 10px}
+.persoadd summary{cursor:pointer;font-size:13.5px;font-weight:600;color:var(--ink)}
+.persoadd[open] summary{margin-bottom:6px}
+.persoadd>label{margin-top:8px}
+#perso-classes{margin-top:8px}
+#perso-classes:empty{display:none}
+.chip.rm{gap:6px}
+.chip.rm::after{content:"✕";font-size:11px;color:var(--mute)}
+.profrow.perso{grid-template-columns:1fr 92px 34px}
+.profrow .pclasses{grid-column:1/2;margin:-2px 0 2px 26px;font-size:12px;color:var(--mute)}
+.profrow .pdel{width:34px;height:32px;min-height:0;padding:0;justify-content:center}
+.reltab{width:100%;border-collapse:collapse;font-size:13.5px;font-variant-numeric:tabular-nums}
+.reltab th,.reltab td{padding:6px 4px;border-bottom:1px solid var(--line);text-align:right}
+.reltab th:first-child,.reltab td:first-child{text-align:left}
+.reltab th{font-size:12px;font-weight:600;color:var(--mute)}
+.reltab tr:last-child td{border-bottom:0}
+.reltab td:last-child{white-space:nowrap}
+@media (max-width:620px){.reltab{font-size:13px}.reltab .bar1{width:34px;margin-left:6px}.reltab th{font-size:11.5px}}
+.reltab .bar1{display:inline-block;vertical-align:middle;width:60px;height:6px;border-radius:3px;background:var(--line);margin-left:8px;overflow:hidden}
+.reltab .bar1 i{display:block;height:100%;background:var(--c,var(--ok))}
+.verifyres{margin-top:10px;font-size:13.5px}
+.verifyres.ok{border-color:color-mix(in srgb,var(--ok) 45%,var(--line))}
+.verifyres.bad{border-color:color-mix(in srgb,var(--bad) 45%,var(--line))}
+.verifyres h3{margin:0 0 6px;font-size:14.5px}
+.verifyres ul{margin:6px 0 0;padding-left:18px}
+.verifyres code{font-size:12px;word-break:break-all}

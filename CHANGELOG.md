@@ -3,12 +3,31 @@
 All notable changes to BarkDog. Versions follow [semantic versioning](https://semver.org/).
 🇫🇷 Version française plus bas.
 
-## [Unreleased]
+## [1.1.0] — 2026-10-21
+
+Shaped by the feedback on the 1.0 launch. Next steps are in [ROADMAP.md](ROADMAP.md).
+
+### Detection
+- New nuisances: **aircraft and helicopters**, **road traffic**.
+- **Custom nuisances**: build your own from any of the 521 YAMNet sounds (up to 10, each with up to 10 sounds), with an optional threshold.
+- A sound that is searched for is never also treated as a sound to ignore; contradictory choices (“Road traffic” + ignore “Traffic”) are refused with a clear message.
+
+### Evidence and traceability
+- **Chained log**: each line of `journal_evenements.csv` holds a SHA-256 linked to the previous line, so changing, inserting or removing a line afterwards breaks the chain.
+- **Integrity check** from the page (“Check integrity”) or with `integrite.py`: the chain plus the fingerprint of every WAV file, written to the history.
+- Upgrading from 1.0 never rewrites the old log: it is archived unchanged as `journal_evenements_v1.csv`, and the new chain starts from its fingerprint.
+- Levels: new `niveau_detections_dBFS` column (average level during detections only); `niveau_moyen_dBFS` now excludes masked speech; levels are measured on the audio actually written.
+
+### Web page
+- Level shown on each episode card; levels added to the CSV export.
+- **Detection reliability per category**, computed from the episodes flagged as false positives.
+- Link to the archived 1.0 log when there is one.
 
 ### Project
 - Python dependencies declared in `requirements.txt` and `requirements-engine.txt`, used by `install.sh` (lets dependency scanners such as Dependabot see them).
-- CI: GitLab SAST (Semgrep) and secret detection jobs.
+- CI: GitLab SAST (Semgrep) and secret detection jobs; the browser API helper only accepts a fixed list of local paths.
 - Website and promo videos in English, with a FR / EN switch.
+- FAQ in the README and on the website: microphones, voice masking and integrity, official reports, BirdNET, limits.
 
 ## [1.0.0] — 2026-10-19
 
@@ -43,6 +62,15 @@ First public release.
 - Sandboxed systemd services (`barkdog`, `barkdog-web`) and a single sudo rule limited to starting and stopping listening.
 
 ---
+
+## [1.1.0] — 21/10/2026 (français)
+
+Construite à partir des retours sur la sortie de la 1.0. La suite est dans [ROADMAP.md](ROADMAP.md).
+
+- **Détection** : nouvelles nuisances **avions et hélicoptères** et **trafic routier** ; **nuisances personnalisées** à partir de n'importe lesquels des 521 sons de YAMNet (10 au maximum, 10 sons chacune), avec seuil facultatif ; un son cherché n'est jamais aussi un son à ignorer, et les choix contradictoires sont refusés avec un message clair.
+- **Traçabilité** : **journal chaîné** (chaque ligne porte un SHA-256 lié à la précédente) ; **vérification d'intégrité** depuis la page ou avec `integrite.py` (chaîne et empreinte de chaque fichier, notée dans l'historique) ; à la mise à jour, le journal 1.0 est archivé tel quel (`journal_evenements_v1.csv`) et la nouvelle chaîne part de son empreinte ; nouvelle colonne `niveau_detections_dBFS`, et `niveau_moyen_dBFS` exclut désormais la parole masquée.
+- **Page web** : niveau affiché sur chaque épisode et dans l'export CSV ; **fiabilité de la détection par catégorie**, calculée à partir des faux positifs marqués ; lien vers le journal 1.0 archivé.
+- **Projet** : dépendances déclarées dans `requirements.txt` et `requirements-engine.txt` ; analyses Semgrep et recherche de secrets dans la CI GitLab ; site et vidéos en anglais ; FAQ dans le README et sur le site.
 
 ## [1.0.0] — 19/10/2026 (français)
 

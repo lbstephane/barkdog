@@ -15,6 +15,9 @@ fakes.install()
 import bark_logger as b      # noqa: E402
 import catalog               # noqa: E402
 import config as cfgmod      # noqa: E402
+import integrite             # noqa: E402
+
+SR = b.SR
 
 
 class CatalogTest(unittest.TestCase):
@@ -117,7 +120,7 @@ class JournalTest(unittest.TestCase):
                 self.assertEqual(next(csv.reader(f, delimiter=";")), b.CSV_FIELDS)
 
 
-class ListenerTest(unittest.TestCase):
+class ListenerHelpers:
     """Chaîne complète : blocs -> épisodes -> fichiers, avec un modèle scénarisé."""
 
     def make(self, d, scenario, **cfg):
@@ -133,12 +136,15 @@ class ListenerTest(unittest.TestCase):
 
     def wait_saved(self, d, expected):
         for _ in range(50):
-            rows = list(csv.DictReader(open(Path(d) / "journal_evenements.csv", encoding="utf-8"), delimiter=";"))
+            with open(Path(d) / "journal_evenements.csv", encoding="utf-8") as f:
+                rows = list(csv.DictReader(f, delimiter=";"))
             if len(rows) >= expected:
                 return rows
             time.sleep(0.05)
         return rows
 
+
+class ListenerTest(ListenerHelpers, unittest.TestCase):
     def test_episode_saved_with_timeline_and_config_id(self):
         with tempfile.TemporaryDirectory() as d:
             sc = lambda n: {"Howl": 0.6} if 20 <= n < 26 else ({"Bark": 0.7} if 24 <= n < 40 else {})
@@ -221,6 +227,98 @@ class ListenerTest(unittest.TestCase):
             b.publish_devices(p)
             names = [m["nom"] for m in json.loads(p.read_text())["micros"]]
             self.assertEqual(names, ["USB PnP Sound Device: Audio (hw:2,0)", "default"])
+
+
+class V11Test(ListenerHelpers, unittest.TestCase):
+    """Version 1.1 : nuisances personnalisées, conflits, niveaux, journal chaîné et sa mise à niveau."""
+    PERSO = [{"id": "frigo", "label": "Frigo du voisin", "classes": ["Hum", "Mechanical fan"]}]
+
+    def test_custom_nuisance_detected_and_validated(self):
+        cfg = cfgmod.validate({"perso": self.PERSO, "profils": ["frigo"], "seuils_profils": {"frigo": 0.4}})
+        self.assertEqual(cfg["profils"], ["frigo"])
+        d = b.Detector(fakes.labels(), cfg)
+        s = np.full(len(fakes.labels()), 0.01, dtype=np.float32)
+        s[fakes.labels().index("Mechanical fan")] = 0.5
+        self.assertEqual(d.evaluate(s, -30)[1], ["frigo"])
+        for bad in ({"perso": [{"id": "Frigo!", "label": "x", "classes": ["Hum"]}]},
+                    {"perso": [{"id": "coq", "label": "x", "classes": ["Hum"]}]},
+                    {"perso": [{"id": "x", "label": "", "classes": ["Hum"]}]},
+                    {"perso": [{"id": "x", "label": "x", "classes": []}]},
+                    {"perso": [{"id": "x", "label": "x", "classes": ["Pas une classe"]}]},
+                    {"perso": self.PERSO * 2},
+                    {"profils": ["frigo"]}):
+            with self.assertRaises(cfgmod.ConfigError, msg=bad):
+                cfgmod.validate(bad)
+
+    def test_new_profiles_and_conflict(self):
+        cfg = cfgmod.validate({"profils": ["avions", "trafic"]})
+        d = b.Detector(fakes.labels(), cfg)
+        s = np.full(len(fakes.labels()), 0.01, dtype=np.float32)
+        s[fakes.labels().index("Helicopter")] = 0.6
+        self.assertEqual(d.evaluate(s, -30)[1], ["avions"])
+        with self.assertRaises(cfgmod.ConfigError):
+            cfgmod.validate({"profils": ["trafic"], "exclusions": ["circulation"]})
+
+    def test_wanted_class_never_ignored(self):
+        perso = [{"id": "camions", "label": "Camions", "classes": ["Truck"]}]
+        d = b.Detector(fakes.labels(), cfgmod.validate({"perso": perso, "profils": ["camions"], "exclusions": ["circulation"]}))
+        s = np.full(len(fakes.labels()), 0.01, dtype=np.float32)
+        s[fakes.labels().index("Truck")] = 0.7
+        self.assertEqual(d.evaluate(s, -30)[1], ["camions"])
+
+    def test_levels_ignore_masked_and_silence(self):
+        audio = np.concatenate([np.full(SR, 0.001), np.full(SR, 0.1), np.zeros(SR)]).astype(np.float32)
+        peak, mean, during = b.levels(audio, [(2.0, 3.0)], {"aboiement": [[1.0, 2.0, 0.7]]})
+        self.assertAlmostEqual(during, -20.0, places=1)           # la détection seule
+        self.assertAlmostEqual(peak, -20.0, places=1)
+        self.assertGreater(mean, -24)                              # passage masqué exclu de la moyenne
+        self.assertEqual(b.levels(np.zeros(SR, dtype=np.float32), [(0, 1)], {})[1:], ("", ""))
+
+    def episodes(self, d, n=2):
+        sc = lambda i: {"Bark": 0.7} if any(10 + 30 * k <= i < 16 + 30 * k for k in range(n)) else {}
+        lst, _ = self.make(d, sc, episodes={"pre_s": 1, "calme_s": 2})
+        self.run_blocks(lst, 30 * n + 10)
+        return self.wait_saved(d, n)
+
+    def test_chain_written_and_verified(self):
+        with tempfile.TemporaryDirectory() as d:
+            rows = self.episodes(d)
+            self.assertEqual(len(rows), 2)
+            self.assertEqual(rows[0]["chaine"], integrite.link(integrite.ZERO, rows[0]))
+            self.assertNotEqual(rows[0]["niveau_detections_dBFS"], "")
+            r = integrite.verify(d)
+            self.assertTrue(r["ok"], r)
+            self.assertEqual((r["chaine"], r["fichiers"]["verifies"]), ("intacte", 2))
+            # un nouveau Saver reprend la chaîne là où elle s'est arrêtée
+            self.assertEqual(b.Saver(d).prev, rows[-1]["chaine"])
+
+    def test_tampering_detected(self):
+        with tempfile.TemporaryDirectory() as d:
+            rows = self.episodes(d)
+            j = Path(d) / "journal_evenements.csv"
+            j.write_text(j.read_text(encoding="utf-8").replace(rows[0]["debut"], "2020-01-01T00:00:00+01:00", 1), encoding="utf-8")
+            r = integrite.verify(d, check_files=False)
+            self.assertEqual((r["ok"], r["chaine"], r["rupture_ligne"]), (False, "rompue", 2))
+            with tempfile.TemporaryDirectory() as d2:
+                rows = self.episodes(d2)
+                wav = Path(d2) / rows[1]["fichier"]
+                wav.write_bytes(wav.read_bytes()[:-2] + b"\0\1")
+                r = integrite.verify(d2)
+                self.assertFalse(r["ok"])
+                self.assertEqual(r["fichiers"]["modifies"], [rows[1]["fichier"]])
+
+    def test_v1_journal_archived_and_chain_anchored(self):
+        with tempfile.TemporaryDirectory() as d:
+            old = integrite.FIELDS[:13]
+            v1 = "debut;" + ";".join(old[1:]) + "\n2026-10-18T05:12:00+02:00" + ";" * 12 + "\n"
+            (Path(d) / "journal_evenements.csv").write_text(v1, encoding="utf-8")
+            saver = b.Saver(d)
+            archive = Path(d) / "journal_evenements_v1.csv"
+            self.assertEqual(archive.read_text(encoding="utf-8"), v1)          # archivé tel quel
+            self.assertEqual(saver.prev, integrite.file_sha256(archive))        # la chaîne part de l'archive
+            self.assertIn("journal 1.0 archive", (Path(d) / "historique_ecoute.csv").read_text())
+            r = integrite.verify(d, check_files=False)
+            self.assertEqual(r["journal_v1"]["lignes"], 1)
 
 
 if __name__ == "__main__":

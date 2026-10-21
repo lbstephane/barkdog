@@ -8,6 +8,7 @@ Enregistreur horodaté de nuisances sonores (aboiements, coqs, musique, travaux�
   config/config.json (page Réglages) et sont relus à chaud.
 - Chaque épisode produit un WAV (avec les secondes qui précèdent le déclenchement), sa
   chronologie (.json) et une ligne de journal avec l'empreinte SHA-256 et l'identifiant des réglages.
+  Le journal est chaîné (voir integrite.py) : une ligne modifiée ou supprimée après coup se voit.
 - Vie privée : les passages où l'IA entend une voix humaine sont rendus muets (par défaut).
 """
 import argparse
@@ -32,6 +33,7 @@ import sounddevice as sd
 
 import catalog
 import config as cfgmod
+import integrite
 
 try:
     from tflite_runtime.interpreter import Interpreter
@@ -46,11 +48,7 @@ SR = 16000          # YAMNet attend du 16 kHz mono
 WIN = 15600         # fenêtre d'analyse ~0,975 s
 HOP = SR // 2       # analyse toutes les 0,5 s
 
-CSV_FIELDS = [
-    "debut", "fin", "duree_s", "categorie", "nb_detections", "scores_max",
-    "niveau_crete_dBFS", "niveau_moyen_dBFS", "horloge_synchronisee",
-    "parole_masquee_s", "reglages", "fichier", "sha256",
-]
+CSV_FIELDS = integrite.FIELDS   # l'ordre des colonnes entre dans le calcul de la chaîne
 EXIT_RESTART = 3    # code de sortie : systemd relance l'écoute (changement de micro)
 
 log = logging.getLogger("barkdog")
@@ -212,10 +210,12 @@ class Detector:
                 log.warning("%s : classes absentes du modèle %s", what, missing)
             return found
 
-        self.cats = {pid: indices(catalog.profile(pid)["classes"], pid) for pid in cfg["profils"]}
+        self.cats = {pid: indices(catalog.profile(pid, cfg)["classes"], pid) for pid in cfg["profils"]}
         self.thr = {pid: cfg["seuils_profils"].get(pid, cfg["seuil"]) for pid in cfg["profils"]}
+        # un son cherché n'est jamais aussi un son à ignorer (ex. « Truck » dans une nuisance personnalisée)
+        wanted = {i for ix in self.cats.values() for i in ix}
         self.ignore_idx = sorted({i for e in catalog.EXCLUSIONS if e["id"] in cfg["exclusions"]
-                                  for i in indices(e["classes"], e["id"])})
+                                  for i in indices(e["classes"], e["id"])} - wanted)
         self.speech_idx = indices(catalog.SPEECH, "parole")
         self.speech_on = cfg["parole"] != "desactive"
         self.speech_thr = cfg["seuil_parole"]
@@ -313,15 +313,55 @@ def mask_speech(blocks, flags):
     return audio * smooth, float((keep == 0).sum()) / SR, segs
 
 
+def levels(audio, masked_segs, marks):
+    """Niveaux d'un épisode (dBFS, relatifs au micro) : crête, moyenne (Leq) hors passages masqués,
+    et moyenne pendant les seules détections. Chaîne vide si rien à mesurer."""
+    n = len(audio)
+    valid = np.ones(n, dtype=bool)
+    for a, b in masked_segs:
+        valid[int(a * SR):int(b * SR)] = False
+    det = np.zeros(n, dtype=bool)
+    for lst in marks.values():
+        for a, b, _ in lst:
+            det[int(a * SR):int(b * SR)] = True
+    peak = round(20 * np.log10(max(float(np.abs(audio).max()) if n else 0, 1e-9)), 1)
+    mean = dbfs(audio[valid]) if valid.any() else ""
+    during = dbfs(audio[valid & det]) if (valid & det).any() else ""
+    return peak, mean, during
+
+
 class Saver:
     def __init__(self, out_dir):
         self.out_dir = Path(out_dir)
         self.out_dir.mkdir(parents=True, exist_ok=True)
-        self.csv_path = self.out_dir / "journal_evenements.csv"
+        self.csv_path = self.out_dir / integrite.JOURNAL
         self.lock = threading.Lock()
+        self.prev = self.open_journal()
+
+    def open_journal(self):
+        """Prépare le journal et renvoie le dernier maillon de la chaîne.
+        Un journal 1.0 (non chaîné) n'est jamais réécrit : il est archivé tel quel et le nouveau
+        journal chaîné part de son empreinte, ce qui relie les deux."""
+        if self.csv_path.exists():
+            with open(self.csv_path, newline="", encoding="utf-8") as f:
+                header = next(csv.reader(f, delimiter=";"), [])
+            if header and "chaine" not in header:
+                archive = self.out_dir / integrite.JOURNAL_V1
+                if archive.exists():
+                    raise SystemExit(f"{archive} existe déjà : mise à niveau du journal impossible, vérifier à la main")
+                os.replace(self.csv_path, archive)
+                sha = integrite.file_sha256(archive)
+                log.info("Journal 1.0 archivé dans %s (SHA-256 %s), nouveau journal chaîné", archive.name, sha)
+                append_history(self.out_dir, f"journal 1.0 archive tel quel dans {archive.name} (sha256 {sha}), "
+                                             "nouveau journal chaine a partir de cette empreinte", "enregistreur")
         if not self.csv_path.exists():
             with open(self.csv_path, "w", newline="", encoding="utf-8") as f:
                 csv.DictWriter(f, CSV_FIELDS, delimiter=";").writeheader()
+            return integrite.genesis(self.out_dir)
+        rows = integrite.read_rows(self.csv_path)
+        if rows and rows[-1].get("chaine"):
+            return rows[-1]["chaine"]
+        return integrite.genesis(self.out_dir)
 
     def save(self, ev: Event):
         # thread non « daemon » : Python attend la fin de l'écriture avant de quitter
@@ -354,6 +394,7 @@ class Saver:
         except OSError as e:
             log.warning("Chronologie non écrite : %s", e)
 
+        peak, mean, during = levels(np.clip(audio, -1, 1), masked_segs, ev.marks)   # niveaux du fichier écrit
         row = {
             "debut": start.isoformat(timespec="seconds"),
             "fin": end.isoformat(timespec="seconds"),
@@ -361,16 +402,19 @@ class Saver:
             "categorie": cat,
             "nb_detections": ev.hit_blocks,
             "scores_max": "|".join(f"{c}:{v:.2f}" for c, v in sorted(ev.max_scores.items()) if v > 0),
-            "niveau_crete_dBFS": round(20 * np.log10(max(float(np.abs(audio).max()) if audio.size else 0, 1e-9)), 1),
-            "niveau_moyen_dBFS": dbfs(audio),
+            "niveau_crete_dBFS": peak,
+            "niveau_moyen_dBFS": mean,
             "horloge_synchronisee": clock_synced(),
             "parole_masquee_s": round(masked_s, 1),
             "reglages": ev.cfg_id,
             "fichier": str(wav_path.relative_to(self.out_dir)),
             "sha256": sha,
+            "niveau_detections_dBFS": during,
         }
         with self.lock, open(self.csv_path, "a", newline="", encoding="utf-8") as f:
+            row["chaine"] = integrite.link(self.prev, row)
             csv.DictWriter(f, CSV_FIELDS, delimiter=";").writerow(row)
+            self.prev = row["chaine"]
         log.info("Événement enregistré : %s %s (%.0f s%s)", row["debut"], cat, row["duree_s"],
                  f", parole masquée {masked_s:.1f} s" if masked_s else "")
 

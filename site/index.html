@@ -86,11 +86,11 @@
         </li>
         <li>
           <h3>Il garde l'épisode</h3>
-          <p>Les 10 secondes d'avant sont conservées. L'épisode se clôt après un calme réglable. Le fichier WAV reçoit une chronologie par catégorie et une empreinte SHA-256 inscrite au journal.</p>
+          <p>Les 10 secondes d'avant sont conservées. L'épisode se clôt après un calme réglable. Le fichier WAV reçoit une chronologie par catégorie et une empreinte SHA-256 inscrite dans un journal chaîné : une ligne modifiée après coup se voit.</p>
         </li>
         <li>
           <h3>Vous consultez</h3>
-          <p>Depuis votre téléphone : écoute avec la frise des hurlements, statistiques de jour et de nuit, annotations, corbeille et exports CSV pour votre dossier.</p>
+          <p>Depuis votre téléphone : écoute avec la frise des hurlements, statistiques de jour et de nuit, fiabilité par catégorie, annotations, vérification d'intégrité et exports CSV pour votre dossier.</p>
         </li>
       </ol>
     </div>
@@ -108,7 +108,9 @@
         <p class="group">Activités humaines</p>
         <ul class="chips"><li>Musique</li><li>Basses, percussions</li><li>Bricolage, travaux</li><li>Pétards, feux d'artifice</li></ul>
         <p class="group">Moteurs et alarmes</p>
-        <ul class="chips"><li>Tondeuse, tronçonneuse</li><li>Motos, scooters</li><li>Alarmes, sirènes</li><li>Klaxons</li><li>Niveau sonore élevé</li></ul>
+        <ul class="chips"><li>Tondeuse, tronçonneuse</li><li>Motos, scooters</li><li>Alarmes, sirènes</li><li>Klaxons</li><li>Avions, hélicoptères</li><li>Trafic routier</li><li>Niveau sonore élevé</li></ul>
+        <p class="group">Sur mesure</p>
+        <ul class="chips"><li>Vos propres nuisances</li><li>521 sons au choix</li></ul>
         <p class="group">Sons à ignorer</p>
         <ul class="chips ignore"><li class="on">Canards, oies</li><li>Oiseaux chanteurs</li><li>Vent, pluie, orage</li><li>Circulation</li></ul>
         <p class="legend"><i></i> activé par défaut</p>
@@ -137,7 +139,7 @@
           <thead><tr><th scope="col"></th><th scope="col">Recommandé</th><th scope="col">À savoir</th></tr></thead>
           <tbody>
             <tr><th scope="row">Carte</th><td>Raspberry Pi Zero 2 W, 3, 4 ou 5</td><td>Raspberry Pi OS 64 bits, la version Lite suffit.</td></tr>
-            <tr><th scope="row">Micro</th><td>Micro USB, ou carte son USB et micro</td><td>Évitez les micros de conférence à réduction de bruit : ils effacent les aboiements lointains.</td></tr>
+            <tr><th scope="row">Micro</th><td>Micro-cravate USB (une dizaine d'euros), ou carte son USB et micro</td><td>Évitez les micros de conférence à réduction de bruit : ils effacent les aboiements lointains.</td></tr>
             <tr><th scope="row">Alimentation</th><td>5 V 2,5 A, ou 5 V 3 A en USB-C pour le Pi 4</td><td>Une alimentation de qualité évite aussi le bourdonnement dans les enregistrements.</td></tr>
             <tr><th scope="row">Stockage</th><td>Carte microSD de 16 Go</td><td>Environ 1,9 Mo par minute enregistrée.</td></tr>
             <tr><th scope="row">Heure</th><td>Réseau au démarrage, ou module RTC DS3231</td><td>Le Pi n'a pas d'horloge sauvegardée ; la page signale une heure non synchronisée.</td></tr>
@@ -185,8 +187,28 @@ cd ~/barkdog && ./install.sh</code></pre>
         <p>Oui, avec un VPN comme Tailscale ou WireGuard. N'ouvrez pas de port sur votre box : la page donne accès à des enregistrements sensibles.</p>
       </details>
       <details>
+        <summary>Quel micro choisir ?</summary>
+        <p>Un simple micro-cravate USB à une dizaine d'euros convient très bien. Évitez les micros de conférence « à réduction de bruit », qui effacent justement les aboiements lointains. Si vous entendez un bourdonnement, c'est souvent l'alimentation : préférez l'officielle, ou ajoutez une ferrite sur le câble du micro.</p>
+      </details>
+      <details>
+        <summary>Le masquage des voix ne fragilise-t-il pas le relevé ?</summary>
+        <p>Le fichier scellé est celui que le boîtier a enregistré, voix déjà rendues muettes. Rien n'est caché pour autant : chaque passage masqué est horodaté, visible sur la frise et compté dans le journal. Un aboiement qui tombe pendant une voix est masqué avec elle, car la vie privée passe en premier.</p>
+      </details>
+      <details>
+        <summary>Comment savoir si le journal a été modifié ?</summary>
+        <p>Chaque ligne du journal contient l'empreinte de la précédente. Modifier, ajouter ou retirer une ligne après coup casse cette chaîne. Le bouton « Vérifier l'intégrité » recalcule la chaîne et l'empreinte SHA-256 de chaque fichier audio, et note le résultat dans l'historique.</p>
+      </details>
+      <details>
+        <summary>Et un commissaire de justice ?</summary>
+        <p>BarkDog ne remplace pas un constat. En revanche, le relevé montre quand la nuisance est la plus probable : c'est utile pour choisir le moment où faire venir un commissaire de justice, ou pour appuyer une démarche auprès d'un conciliateur ou de la mairie.</p>
+      </details>
+      <details>
+        <summary>Mon bruit n'est pas dans la liste</summary>
+        <p>Créez une nuisance personnalisée à partir des 521 sons que l'IA connaît (ventilateur, pompe à chaleur, bourdonnement…). Le mode test affiche ce que l'IA « entend » pendant le bruit, ce qui donne les sons à choisir. BarkDog ne reconnaît pas les races de chiens ni les espèces d'oiseaux ; pour les oiseaux, voyez <a href="https://github.com/Nachtzuster/BirdNET-Pi">BirdNET-Pi</a>.</p>
+      </details>
+      <details>
         <summary>Et si l'IA se trompe ?</summary>
-        <p>Le mode test affiche les scores en direct face aux seuils, sans enregistrer. Vous ajustez la sensibilité, le nombre minimum de détections et les sons à ignorer. Dans la liste des épisodes, un faux positif se marque d'un clic sans toucher au journal d'origine.</p>
+        <p>Le mode test affiche les scores en direct face aux seuils, sans enregistrer. Vous ajustez la sensibilité, le nombre minimum de détections et les sons à ignorer. Dans la liste des épisodes, un faux positif se marque d'un clic sans toucher au journal d'origine, et la page en déduit la fiabilité de chaque catégorie chez vous.</p>
       </details>
     </div>
   </section>
